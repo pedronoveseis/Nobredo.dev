@@ -1,7 +1,7 @@
 # Arquitetura: contagem regressiva até o pedido de namoro
 
-> Status: **arquitetura definida; esqueleto implementado** (semana 1, ver seção 10).
-> Última atualização: 2026-10-03 (rodada 5).
+> Status: **pivô para site estático no Netlify + função de tempo** (rodada 6, ver seção 11). O backend Ktor (seções 2 a 10) fica **parqueado** para a fase do app KMP.
+> Última atualização: 2026-10-03 (rodada 6).
 
 ## 1. Contexto
 
@@ -141,3 +141,21 @@ Enquanto os dois não chegam, dá para construir o esqueleto, o modelo de dados,
 - 12 testes (máquina de estados, vazamento de conteúdo, autenticação, hash).
 
 Ainda não: UI do admin, upload de mídia, rate-limit no login, Dockerfile e Compose (dependem do servidor e do domínio).
+
+## 11. Pivô: Netlify (rodada 6)
+
+Decisão do autor: publicar por **commit e push** e priorizar simplicidade e personalização. Resolve hospedagem e domínio (endereço `*.netlify.app`, domínio fica opcional).
+
+| Tema | Decisão |
+|---|---|
+| Hospedagem | Netlify, deploy pelo GitHub (repositório privado) |
+| Front | HTML + CSS + JS puro em `site/`. Personalização por variáveis CSS em `site/assets/theme.css`; sem framework |
+| Link dela | `/p/<token>`; o HTML é só a casca, quem valida o token é a função |
+| Tempo e segredo | Função `netlify/functions/state.mjs` devolve só o que já pode ser visto; cena final só depois de `TARGET_AT` |
+| Conteúdo | `content/drops.json` (só o que já é para ser visto); rascunhos ficam em outro branch. `publishAt` opcional por drop |
+| Segredos (variáveis de ambiente no Netlify, **fora do repo**) | `LINK_TOKEN` (>=16 caracteres), `FINAL_WORD`, opcionais `TARGET_AT`, `TOGETHER_SINCE` |
+| Contagem progressiva | Começa em `TARGET_AT` ou em `TOGETHER_SINCE` (muda a variável e faz redeploy) |
+| Admin com login | Não existe nesta fase. O "admin" é o Git |
+| Ktor | Parqueado em `src/`. Retomar com o app KMP, com a mesma forma de API (`/api/p/{token}/state`) |
+
+Fica em aberto: ver se o plano gratuito do Netlify basta (funções, banda) e se o repositório privado é aceito no plano atual. Conferir no site.

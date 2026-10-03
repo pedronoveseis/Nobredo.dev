@@ -1,3 +1,17 @@
+# Nobredo.dev
+
+> **Atual:** site estático em `site/` + função em `netlify/functions/`, publicado no Netlify. O backend Ktor (`src/`, abaixo) está parqueado até a fase do app.
+
+## Netlify
+
+1. Conectar o repositório no Netlify (publish `site`, sem build command; o `netlify.toml` já cobre).
+2. Variáveis de ambiente (nunca no repositório): `LINK_TOKEN` (>=16 caracteres, `A-Za-z0-9_-`), `FINAL_WORD`; opcionais `TARGET_AT` (padrão `2026-11-22T16:00:00-03:00`) e `TOGETHER_SINCE`.
+3. Link dela: `https://<site>.netlify.app/p/<LINK_TOKEN>`.
+4. Novo drop: adicionar em `content/drops.json` (`{ "id", "kind", "payload", "hint"? , "publishAt"? }`) e dar push. Imagens em `site/media/`. Rascunhos em outro branch.
+5. Testes da lógica: `node --test netlify/functions/lib.test.mjs`.
+
+---
+
 # nobredo
 
 Site privado em contagem regressiva até 22/11/2026, às 16h. Ktor (Kotlin) + SQLite. Veja `docs/arquitetura.md`.
