@@ -1,7 +1,7 @@
 # Arquitetura: contagem regressiva até o pedido de namoro
 
-> Status: **fase de arquitetura / brainstorm**. Nada implementado ainda.
-> Última atualização: 2026-10-01 (rodada 4).
+> Status: **arquitetura definida; esqueleto implementado** (semana 1, ver seção 10).
+> Última atualização: 2026-10-03 (rodada 5).
 
 ## 1. Contexto
 
@@ -31,7 +31,7 @@ Restrições e intenções:
 | Mecânica | **Jardim**: flores (girassóis, flores do campo, a definir) ligadas a coordenadas de locais visitados |
 | Trajetória | O autor monta a trajetória aos poucos; ela decifra as coordenadas |
 | Mapa | Não é necessário mapa real |
-| Cena final | Tudo junto, formando o pedido quando a contagem regressiva zera |
+| Cena final | Tudo junto, formando o pedido quando a contagem regressiva zera. **O conteúdo dela e o motivo recorrente do site são definidos só pelo admin e ficam fora do repositório** (a surpresa não deve estar versionada) |
 | Depois do "sim" | Contagem **progressiva** (tempo juntos), iniciada pelo autor (ver 3.2) |
 | App KMP | Depois do 22/11/2026, como cliente da mesma API |
 
@@ -106,7 +106,7 @@ Inclinação atual: **VPS Hostinger**, com **Docker Compose** (Ktor), **Caddy** 
 | # | Item | Bloqueia | Pode andar sem ele |
 |---|---|---|---|
 | 1 | **Domínio** | Deploy final com HTTPS e o link definitivo | Todo o desenvolvimento local, Docker Compose, testes e o backend |
-| 2 | **Brand book** (só alguns detalhes: cores, fontes) | O visual final do front | Backend, admin, API, máquina de estados e um tema neutro provisório, trocado depois por tokens |
+| 2 | **Brand book** (só alguns detalhes: cores, fontes). Bloqueio *posterior*: só pesa na troca do tema | O visual final do front | Backend, admin, API, máquina de estados e um tema neutro provisório, trocado depois por tokens |
 
 Enquanto os dois não chegam, dá para construir o esqueleto, o modelo de dados, o admin e a máquina de estados com um tema provisório.
 
@@ -125,7 +125,19 @@ Enquanto os dois não chegam, dá para construir o esqueleto, o modelo de dados,
 1. **Domínio** (bloqueio): é possível usar `nobredo.dev`? Se não, qual registrador?
 2. **Brand book** (bloqueio): cores em hex e fontes (Google Fonts ou arquivos próprios, por causa de licença). Logo é opcional.
 3. **Servidor:** confirmar VPS Hostinger (plano, RAM, datacenter) ou PaaS.
-4. **Cena final:** como o jardim "floresce" e mostra o pedido? Definir a composição visual.
+4. **Cena final:** a composição visual da animação (como as peças do jardim se juntam até o final). O conteúdo está decidido, mas fora do repositório.
 5. **Contagem progressiva:** começa pelo botão do admin ("ela aceitou") ou automaticamente em `alvo_em`? Em que unidade mostrar (dias, horas, minutos, segundos)?
 6. **Senha-enigma de entrada:** vale usar? Qual resposta?
 7. **Depois do pedido:** manter no ar, arquivar ou apagar?
+
+## 10. Implementado (semana 1)
+
+- Projeto Gradle (Kotlin 2.4, Ktor 3.6, Exposed 1.5, SQLite).
+- Máquina de estados `COUNTDOWN → AWAITING → TOGETHER`, derivada só do relógio do servidor e do registro do "sim".
+- Tela da destinatária em `/p/{token}`: contagem regressiva, drops e cena final por tipo, contagem progressiva, tema provisório.
+- API pública com filtragem no servidor (rascunho, agendado e cena final nunca saem antes da hora).
+- API de admin protegida por HTTP Basic com senha em PBKDF2.
+- `noindex` em todas as respostas, `robots.txt`, logs sem SQL.
+- 12 testes (máquina de estados, vazamento de conteúdo, autenticação, hash).
+
+Ainda não: UI do admin, upload de mídia, rate-limit no login, Dockerfile e Compose (dependem do servidor e do domínio).

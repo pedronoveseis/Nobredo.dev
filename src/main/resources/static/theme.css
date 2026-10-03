@@ -1,0 +1,26 @@
+/*
+ * TEMA PROVISÓRIO. Tokens neutros até o brand book chegar.
+ * Para trocar a identidade visual, edite só os valores deste arquivo.
+ */
+:root {
+  --color-bg: #fbf7ef;
+  --color-surface: #ffffff;
+  --color-text: #2b2a26;
+  --color-muted: #7a766b;
+  --color-accent: #e0a526;
+
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: Georgia, "Times New Roman", serif;
+
+  --radius: 14px;
+  --space: 1rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1d1c19;
+    --color-surface: #292823;
+    --color-text: #f3efe5;
+    --color-muted: #a6a193;
+  }
+}
