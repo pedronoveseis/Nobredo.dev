@@ -1,61 +1,39 @@
 # Nobredo.dev
 
-> **Atual:** site estático em `site/` + função em `netlify/functions/`, publicado no Netlify. O backend Ktor (`src/`, abaixo) está parqueado até a fase do app.
+Site estático (HTML + CSS + JS puro, sem build) publicado no GitHub Pages.
 
-## Netlify
+Centenas de palavras flutuam e se embaralham; entre **01/11/2026 00h** e **22/11/2026 16h** (Brasília) elas vão se encaixando até formar uma palavra. Depois do alvo, o relógio vira contagem progressiva.
 
-1. Conectar o repositório no Netlify (publish `site`, sem build command; o `netlify.toml` já cobre).
-2. Variáveis de ambiente (nunca no repositório): `LINK_TOKEN` (>=16 caracteres, `A-Za-z0-9_-`), `FINAL_WORD`; opcionais `TARGET_AT` (padrão `2026-11-22T16:00:00-03:00`) e `TOGETHER_SINCE`.
-3. Link dela: `https://<site>.netlify.app/p/<LINK_TOKEN>`.
-4. Novo drop: adicionar em `content/drops.json` (`{ "id", "kind", "payload", "hint"? , "publishAt"? }`) e dar push. Imagens em `site/media/`. Rascunhos em outro branch.
-5. Testes da lógica: `node --test netlify/functions/lib.test.mjs`.
+## Rodar local
 
----
-
-# nobredo
-
-Site privado em contagem regressiva até 22/11/2026, às 16h. Ktor (Kotlin) + SQLite. Veja `docs/arquitetura.md`.
-
-## Rodar localmente
-
-Requisitos: JDK 21.
-
-```bash
-export LINK_TOKEN=$(openssl rand -hex 16)
-./gradlew installDist
-export ADMIN_PASSWORD_HASH=$(build/install/nobredo/bin/nobredo hash-password)   # pede a senha (mín. 12 chars)
-build/install/nobredo/bin/nobredo
+```sh
+cd site && python3 -m http.server 8080
 ```
 
-Abra `http://localhost:8080/p/$LINK_TOKEN`. Qualquer outro caminho dá 404.
+Para simular uma data: `http://localhost:8080/?data=2026-11-10T12:00:00-03:00` (o tempo segue correndo a partir dela).
 
-Testes: `./gradlew test`.
+## Testes
 
-## API
+```sh
+node --test tools/core.test.mjs
+```
 
-Pública (a chave é o token do link):
+## Arquivos
 
-| Método | Rota | O que faz |
-|---|---|---|
-| GET | `/p/{token}` | A página |
-| GET | `/api/p/{token}/state` | Fase, hora do servidor, drops visíveis e, só depois do alvo, a cena final |
+| Arquivo | Função |
+|---|---|
+| `site/assets/core.js` | Lógica pura: janela de datas, fração, ordem determinística, embaralhar |
+| `site/assets/app.js` | Canvas, forma, animação, relógio |
+| `site/assets/words.js` | Palavras (as atuais são de teste e genéricas) |
+| `site/assets/theme.css` | Tokens de cor e fonte (provisórios) |
+| `.github/workflows/pages.yml` | Deploy no Pages a cada push no `main` |
 
-Admin (HTTP Basic; a UI do admin vem na semana 2):
+## Publicar
 
-| Método | Rota | O que faz |
-|---|---|---|
-| GET | `/admin/api/drops` | Lista todos, inclusive rascunhos |
-| POST | `/admin/api/drops` | Cria. `{"kind","payload","hint?","position?","publishAt?"}`. Sem `publishAt` = rascunho; futuro = agendado |
-| POST | `/admin/api/drops/{id}/publish` | Publica agora |
-| PUT | `/admin/api/final-scene` | Define o conteúdo da cena final (fica só no banco) |
-| POST | `/admin/api/together` | Registra o "sim". Só depois do alvo, e uma vez |
+Settings → Pages → Source: **GitHub Actions**. O workflow publica a pasta `site/` quando há push no `main`.
 
-Tipos de drop com renderizador: `texto`, `flor`, `coordenada`, `gif`, `imagem` (`src` deve começar com `/media/` ou `https://`). Um tipo novo é uma entrada nova em `renderers` no `static/app.js`.
+## Atenção: repositório público
 
-## Conteúdo que não entra no repositório
+Tudo aqui é legível por qualquer pessoa. Não colocar nada pessoal (nomes, locais, brand book). O código e o parâmetro `?data=` revelam o final para quem inspecionar a página.
 
-O conteúdo da cena final e os drops moram **só no banco** (`DB_PATH`), definidos pelo admin. Nada disso é versionado, nem em exemplos ou testes (os testes usam texto genérico).
-
-## Tema
-
-`src/main/resources/static/theme.css` tem tokens provisórios. Troque só os valores quando o brand book chegar.
+`_arquivo/` guarda a abordagem anterior (Ktor, SQLite, admin, Netlify), parqueada.

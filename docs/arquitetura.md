@@ -1,5 +1,7 @@
 # Arquitetura: contagem regressiva até o pedido de namoro
 
+> **SUPERADO (rodada 7, 2026-10-31):** o projeto virou um site estático no GitHub Pages com palavras que se encaixam até formar a palavra final. Backend, admin e Netlify foram arquivados em `_arquivo/`. Ver seção 12. As seções 1 a 11 ficam como histórico.
+
 > Status: **pivô para site estático no Netlify + função de tempo** (rodada 6, ver seção 11). O backend Ktor (seções 2 a 10) fica **parqueado** para a fase do app KMP.
 > Última atualização: 2026-10-03 (rodada 6).
 
@@ -159,3 +161,17 @@ Decisão do autor: publicar por **commit e push** e priorizar simplicidade e per
 | Ktor | Parqueado em `src/`. Retomar com o app KMP, com a mesma forma de API (`/api/p/{token}/state`) |
 
 Fica em aberto: ver se o plano gratuito do Netlify basta (funções, banda) e se o repositório privado é aceito no plano atual. Conferir no site.
+
+## 12. Rodada 7: GitHub Pages e embaralhador de palavras
+
+| Tema | Decisão |
+|---|---|
+| Hospedagem | GitHub Pages (repositório agora público), deploy por GitHub Actions |
+| Backend e admin | Removidos (arquivados em `_arquivo/`) |
+| Mecânica | Centenas de palavras flutuam e se embaralham; encaixam numa silhueta conforme a data |
+| Janela | 01/11/2026 00h até 22/11/2026 16h (-03:00); fração linear; mesma ordem em qualquer aparelho (semente fixa) |
+| Depois do alvo | Contagem progressiva a partir de 22/11 16h |
+| Segredo | Sem proteção real (site estático em repo público). Aceito |
+| Teste | `?data=` simula outra data |
+
+MVP em validação. Fica para depois: visual e brand book, palavras reais (sem expor nada pessoal em repo público), motivo recorrente, estado no link.
