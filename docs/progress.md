@@ -21,7 +21,7 @@
 
 1. **Rodadas 1 a 5 (arquitetura):** backend Ktor + SQLite + admin, conteúdo liberado pelo servidor. Esqueleto implementado e testado.
 2. **Rodada 6:** pivô para site estático no Netlify com função de tempo. Publicação por commit.
-3. **Rodada 7:** pivô para GitHub Pages e para a mecânica de palavras que se encaixam. Backend e admin saem; arquivados em `_arquivo/`.
+3. **Rodada 7:** pivô para GitHub Pages e para a mecânica de palavras que se encaixam. Backend e admin saem; ficaram em `_arquivo/` até 31/10, quando a pasta foi removida (continua no histórico do Git).
 4. **Rodada 8:** ruído de 4 letras, palavras pessoais cifradas, desenho menor, janela 01/11 a 21/11.
 5. **Rodada 9:** sem chave nada aparece (nem forma nem palavra final); palavra final também cifrada; banco de ruído importado do dicionário com lista de exclusão.
 6. **Deploy:** `main` criada e definida como padrão; Pages ativo.
@@ -47,14 +47,14 @@
 - Rede do container da sessão: domínios novos só valem depois que a regra de rede é aplicada; testar com `curl` antes de insistir.
 
 **Processo**
-- A arquitetura mudou três vezes (Ktor → Netlify → Pages). Manter o código antigo em `_arquivo/` custou pouco e preserva o caminho para o futuro app KMP.
+- A arquitetura mudou três vezes (Ktor → Netlify → Pages). O código antigo ficou em `_arquivo/` enquanto foi útil e depois foi apagado; o histórico do Git preserva o caminho para o futuro app KMP.
 - No zsh interativo `#` não é comentário: não colar comandos com `# ...`. Sempre rodar da raiz do projeto ou usar `--directory`.
 
 ## 4. Pendências
 
 **Do autor**
 - Enviar as ~100 palavras pessoais e confirmar a palavra final. Rodar `node tools/cifrar.mjs` e publicar o `pessoais.enc.json` novo; a chave nova gera um link novo.
-- Brand book: cores e fontes (só trocar `site/assets/theme.css`).
+- Brand book: cores e fonte aplicados em 31/10 (`theme.css`: fundo #5D5048, texto #EFDEB3, timer #E8B83F; fonte Agilera em `site/assets/fonts/agilera.woff2`, subset latino, só no relógio). Falta o logotipo "nobredo" na página, se for desejado.
 - Revisar `tools/bloqueadas.txt` e `site/assets/ruido.js`.
 - Decidir sobre a branch antiga `claude/arquitetura-pedido-namoro` (apagar) e sobre o histórico do Git.
 
