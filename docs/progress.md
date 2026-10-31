@@ -54,7 +54,7 @@
 
 **Do autor**
 - Enviar as ~100 palavras pessoais e confirmar a palavra final. Rodar `node tools/cifrar.mjs` e publicar o `pessoais.enc.json` novo; a chave nova gera um link novo.
-- Brand book: cores e fontes (só trocar `site/assets/theme.css`).
+- Brand book: cores e fonte aplicados em 31/10 (`theme.css`: fundo #5D5048, texto #EFDEB3, timer #E8B83F; fonte Agilera em `site/assets/fonts/agilera.woff2`, subset latino, só no relógio). Falta o logotipo "nobredo" na página, se for desejado.
 - Revisar `tools/bloqueadas.txt` e `site/assets/ruido.js`.
 - Decidir sobre a branch antiga `claude/arquitetura-pedido-namoro` (apagar) e sobre o histórico do Git.
 

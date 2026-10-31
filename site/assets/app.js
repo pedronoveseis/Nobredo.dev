@@ -249,4 +249,4 @@ function relogio(n) {
 
 let redim;
 addEventListener("resize", () => { clearTimeout(redim); redim = setTimeout(montar, 150); });
-Promise.all([carregarPessoais(), document.fonts?.ready]).then(() => { montar(); requestAnimationFrame(quadro); });
+Promise.all([carregarPessoais(), document.fonts?.load(`1em ${cor("--font-display")}`).catch(() => {}), document.fonts?.ready]).then(() => { montar(); requestAnimationFrame(quadro); });
