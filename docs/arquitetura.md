@@ -181,11 +181,19 @@ MVP em validação. Fica para depois: visual e brand book, palavras reais (sem e
 | Tema | Decisão |
 |---|---|
 | Ruído | ~1000 palavras de exatamente 4 letras (`site/assets/ruido.js`, lista de teste até o autor enviar o banco). Somem em 4 s em `ALVO` |
-| Forma | ~100 palavras pessoais (repetição permitida) formam o VOCÊ; desenho ocupa ~65% da área útil |
+| Forma | ~100 palavras pessoais (repetição permitida) formam a palavra final; desenho ocupa ~65% da área útil |
 | Cifra | Palavras pessoais em `site/assets/pessoais.enc.json` (AES-GCM). Chave no fragmento do link (`#chave`), nunca no repo. `node tools/cifrar.mjs pessoais.txt` gera o arquivo e imprime a chave; `pessoais.txt` está no `.gitignore` |
-| Sem chave | Modo de demonstração: a forma usa o ruído |
+| Sem chave | Ver seção 14: só ruído e relógio |
 | Encaixe | Curva `f³`: poucos encaixes no começo, forma só perto do fim |
 | Datas | Animação 01/11 00h a 21/11 00h (-03:00). Contagem regressiva até 21/11 00h; depois progressiva desde 22/10 00h (30 dias em 21/11) |
 | Testes | `node --test tools/*.test.mjs` |
 
 Rodar local: `cd site && python3 -m http.server 8080`; simular data com `?data=2026-11-10T12:00:00-03:00`. Publicar: Settings → Pages → Source: GitHub Actions (workflow em `.github/workflows/pages.yml`, dispara no `main`).
+
+## 14. Rodada 9: sem chave não aparece forma nem palavra final
+
+- Sem `#chave` válida o site mostra **só ruído e relógio**: não calcula forma, não encaixa palavras e o ruído não some em `ALVO`.
+- A palavra final vai **dentro do pacote cifrado** (`{ palavra, palavras }`), junto com as palavras pessoais. Não existe em texto em `site/`; um teste (`tools/vazamento.test.mjs`) falha se aparecer.
+- `node tools/cifrar.mjs pessoais.txt palavra-final.txt` (arquivos locais, no `.gitignore`) grava `site/assets/pessoais.enc.json` e imprime a chave do link.
+- Ruído: `node tools/importar-ruido.mjs <pagina.html>` gera `site/assets/ruido.js` a partir da lista de 4 letras, descontando `tools/bloqueadas.txt` (sentido negativo, impróprias, nomes). ~940 palavras.
+- Limite: o histórico do Git é público e anterior a esta regra.

@@ -4,14 +4,15 @@ import { cifrar, decifrar, novaChave } from "../site/assets/cripto.js";
 
 test("cifra e decifra com a mesma chave", async () => {
   const chave = novaChave();
-  const palavras = ["girassol", "você", "açaí"];
-  const pacote = await cifrar(palavras, chave);
+  const palavras = ["girassol", "coração", "açaí"];
+  const conteudo = { palavra: "ela", palavras };
+  const pacote = await cifrar(conteudo, chave);
   assert.ok(!JSON.stringify(pacote).includes("girassol"));
-  assert.deepEqual(await decifrar(pacote, chave), palavras);
+  assert.deepEqual(await decifrar(pacote, chave), conteudo);
 });
 
 test("chave errada ou pacote adulterado devolve null", async () => {
-  const pacote = await cifrar(["x"], novaChave());
+  const pacote = await cifrar({ palavra: "x", palavras: ["y"] }, novaChave());
   assert.equal(await decifrar(pacote, novaChave()), null);
   assert.equal(await decifrar({ ...pacote, dados: "AAAA" }, novaChave()), null);
   assert.equal(await decifrar(null, novaChave()), null);

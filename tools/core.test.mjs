@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { INICIO, ALVO, JUNTOS_DESDE, fracao, curva, ordem, embaralhar, encaixadas, partes } from "../site/assets/core.js";
 import { RUIDO } from "../site/assets/ruido.js";
+import { readFileSync } from "node:fs";
+import { bloqueadasDoArquivo, filtrar, semAcento } from "./importar-ruido.mjs";
 
 test("fração: limites e meio da janela", () => {
   assert.equal(fracao(INICIO - 1), 0);
@@ -29,10 +31,16 @@ test("curva: extremos, monotônica e lenta no começo", () => {
   for (let f = 0; f < 1; f += 0.05) assert.ok(curva(f + 0.05) >= curva(f));
 });
 
-test("ruído: 1000 palavras de exatamente 4 letras, sem repetição", () => {
-  assert.ok(RUIDO.length >= 900);
+test("ruído: entre 900 e 1000 palavras de exatamente 4 letras, sem repetição", () => {
+  assert.ok(RUIDO.length >= 900 && RUIDO.length <= 1000);
   assert.ok(RUIDO.every((p) => [...p].length === 4));
   assert.equal(new Set(RUIDO).size, RUIDO.length);
+});
+
+test("ruído: nenhuma palavra da lista de bloqueadas (nem a palavra final)", () => {
+  const nega = new Set(bloqueadasDoArquivo(readFileSync(new URL("./bloqueadas.txt", import.meta.url), "utf8")).map(semAcento));
+  assert.ok(nega.size > 10);
+  assert.deepEqual(RUIDO.filter((p) => nega.has(semAcento(p))), []);
 });
 
 test("ordem: permutação determinística", () => {
@@ -59,4 +67,10 @@ test("encaixadas: 0 no início e todas no alvo", () => {
 test("partes", () => {
   assert.deepEqual(partes(86400e3 + 3600e3 + 60e3 + 5e3), [1, 1, 1, 5]);
   assert.deepEqual(partes(-5), [0, 0, 0, 0]);
+});
+
+test("importador: filtra tamanho, maiúsculas, abreviações, duplicatas e bloqueadas", () => {
+  const { ficam, fora } = filtrar(["amor", "Davi", "P.S.", "casa", "casa", "ÓDIO", "ódio", "abc", "ação", "você"], ["odio", "voce"]);
+  assert.deepEqual(ficam, ["amor", "casa", "ação"]);
+  assert.deepEqual(fora, ["Davi", "P.S.", "casa", "ÓDIO", "ódio", "abc", "você"]);
 });

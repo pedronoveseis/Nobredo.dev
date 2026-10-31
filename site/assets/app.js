@@ -21,29 +21,39 @@ const css = getComputedStyle(document.documentElement);
 const cor = (n) => css.getPropertyValue(n).trim();
 
 let W = 0, H = 0, fonteForma = 12, fonteRuido = 11;
-let palavras = RUIDO; // palavras da forma; trocadas pelas pessoais se a chave servir
+let palavras = [];    // palavras pessoais (vazio sem chave: nada de forma)
+let final = "";       // palavra final; só existe depois de decifrar
 let ruido = [];       // { texto, base, fase, periodo }
 let forma = [];       // { texto, slot, base, fase, periodo, rank, p }
 let rank = [];
 
-// ---------- palavras pessoais (cifradas; a chave vem no #fragmento do link) ----------
+// ---------- conteúdo pessoal (cifrado; a chave vem no #fragmento do link) ----------
+// Sem chave válida não há forma, palavra final nem encaixe: só ruído e relógio.
 async function carregarPessoais() {
   const chave = location.hash.slice(1);
   if (!chave) return;
   try {
     const res = await fetch("assets/pessoais.enc.json", { cache: "no-cache" });
     if (!res.ok) return;
-    const lista = await decifrar(await res.json(), chave);
-    if (lista?.length) palavras = ordem(lista.length, SEED_PALAVRAS).map((i) => lista[i]);
+    const pacote = await decifrar(await res.json(), chave);
+    if (pacote && typeof pacote.palavra === "string" && Array.isArray(pacote.palavras) && pacote.palavras.length) {
+      final = pacote.palavra;
+      palavras = ordem(pacote.palavras.length, SEED_PALAVRAS).map((i) => pacote.palavras[i]);
+      canvas.setAttribute("role", "img");
+      canvas.setAttribute("aria-label", final);
+    }
   } catch {
-    /* sem rede ou arquivo ausente: fica com o modo de demonstração */
+    /* sem rede, arquivo ausente ou chave errada: só ruído */
   }
 }
 
-// ---------- forma VOCÊ ----------
+const temForma = () => final !== "" && palavras.length > 0;
+
+// ---------- forma (palavra final) ----------
 function mascara() {
-  const retrato = W < H;
-  const linhas = retrato ? ["VO", "CÊ"] : ["VOCÊ"];
+  const letras = [...final];
+  const meio = Math.ceil(letras.length / 2);
+  const linhas = W < H && letras.length > 3 ? [letras.slice(0, meio).join(""), letras.slice(meio).join("")] : [final];
   const util = H - RODAPE;
   const area = { w: W * ESCALA_FORMA, h: util * ESCALA_FORMA };
   const off = document.createElement("canvas");
@@ -115,14 +125,18 @@ function montar() {
   canvas.height = Math.round(H * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  const m = mascara();
-  let lo = 3, hi = FONTE_MAX, slots = preencher(m, lo);
-  for (let n = 0; n < 9; n++) {
-    const mid = (lo + hi) / 2;
-    const s = preencher(m, mid);
-    if (s.length >= palavras.length) { lo = mid; slots = s; } else hi = mid;
+  let slots = [];
+  if (temForma()) {
+    const m = mascara();
+    let lo = 3, hi = FONTE_MAX;
+    slots = preencher(m, lo);
+    for (let n = 0; n < 9; n++) {
+      const mid = (lo + hi) / 2;
+      const s = preencher(m, mid);
+      if (s.length >= palavras.length) { lo = mid; slots = s; } else hi = mid;
+    }
+    fonteForma = lo;
   }
-  fonteForma = lo;
   fonteRuido = Math.max(9, Math.min(13, W / 60 + 4));
 
   const rnd = (a) => Math.abs((Math.sin(a * 127.1) * 43758.5453) % 1);
@@ -159,8 +173,8 @@ function quadro(t) {
   ctx.clearRect(0, 0, W, H);
   ctx.textBaseline = "middle";
 
-  // Ruído: some em ALVO e não volta.
-  const vivo = reduzido ? (n < ALVO ? 1 : 0) : 1 - Math.min(1, Math.max(0, (n - ALVO) / FADE_MS));
+  // Ruído: some em ALVO e não volta. Sem forma para revelar, ele fica.
+  const vivo = !temForma() ? 1 : reduzido ? (n < ALVO ? 1 : 0) : 1 - Math.min(1, Math.max(0, (n - ALVO) / FADE_MS));
   if (vivo > 0) {
     ctx.font = `${fonteRuido}px ${cor("--font-body")}`;
     ctx.fillStyle = cor("--color-ruido");
