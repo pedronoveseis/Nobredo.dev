@@ -1,4 +1,4 @@
-import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, embaralhar, encaixadas, partes } from "./core.js";
+import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, embaralhar, encaixadas, partes, empacotar } from "./core.js";
 import { RUIDO } from "./ruido.js";
 
 const SEED_PALAVRAS = 4;   // ordem das palavras ao longo da forma
@@ -82,35 +82,36 @@ function mascara() {
   return m;
 }
 
-function cabe(m, x, y, w, h) {
-  const x0 = Math.floor(x), x1 = Math.min(W - 1, Math.ceil(x + w));
-  if (x0 < 0 || x1 >= W) return false;
-  for (const yy of [y - h / 2, y, y + h / 2]) {
-    const row = Math.floor(yy) * W;
-    if (yy < 0 || yy >= H) return false;
-    for (let xx = x0; xx <= x1; xx += 2) if (!m[row + xx]) return false;
-    if (!m[row + x1]) return false;
+// Trechos contíguos da máscara na linha y (a palavra ocupa y - h/2 .. y + h/2): [{ x0, x1 }].
+function trechos(m, y, h) {
+  const linhas = [y - h / 2, y, y + h / 2].map((yy) => Math.floor(yy) * W);
+  const trs = [];
+  let ini = -1;
+  for (let x = 0; x <= W; x++) {
+    const ok = x < W && linhas.every((r) => m[r + x]);
+    if (ok && ini < 0) ini = x;
+    else if (!ok && ini >= 0) { trs.push({ x0: ini, x1: x }); ini = -1; }
   }
-  return true;
+  return trs;
 }
 
-// Preenche toda a forma, repetindo as palavras em ciclo. Devolve [{ i, x, y }].
+// Preenche toda a forma, repetindo as palavras em ciclo. Cada trecho de cada linha é justificado
+// (palavras curtas fecham as bordas). Devolve [{ i, x, y }].
 function preencher(m, f) {
   ctx.font = `${f}px ${cor("--font-body")}`;
   const larguras = palavras.map((p) => ctx.measureText(p).width);
   const folga = f * 0.4;
+  const minimo = Math.min(...larguras);
   const slots = [];
   const passo = f * 1.15;
+  const pend = [];
   let k = 0;
+  const gerar = () => k++ % palavras.length;
   for (let y = passo; y < H - RODAPE; y += passo) {
-    let x = 0;
-    while (x < W) {
-      const i = k % palavras.length;
-      if (cabe(m, x, y, larguras[i], f * 0.6)) {
-        slots.push({ i, x, y });
-        x += larguras[i] + folga;
-        k++;
-      } else x += 2;
+    for (const { x0, x1 } of trechos(m, y, f * 0.6)) {
+      const ini = x0 + folga / 2, L = x1 - x0 - folga; // margem para trechos vizinhos não encostarem
+      if (L < minimo) continue;
+      for (const it of empacotar(larguras, pend, gerar, L, folga, 12, f * 1.2)) slots.push({ i: it.i, x: ini + it.x, y });
     }
   }
   return slots;
@@ -184,7 +185,7 @@ function quadro(t) {
   // Ruído: some em ALVO e não volta. Sem forma para revelar, ele fica.
   const vivo = !temForma() ? 1 : reduzido ? (n < ALVO ? 1 : 0) : 1 - Math.min(1, Math.max(0, (n - ALVO) / FADE_MS));
   if (vivo > 0) {
-    ctx.font = `${fonteRuido}px ${cor("--font-body")}`;
+    ctx.font = `${fonteRuido}px ${cor("--font-display")}`;
     ctx.fillStyle = cor("--color-ruido");
     ctx.globalAlpha = 0.55 * vivo;
     ctx.textAlign = "center";

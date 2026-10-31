@@ -82,3 +82,25 @@ test("importador: filtra tamanho, maiúsculas, abreviações, duplicatas e bloqu
   assert.deepEqual(ficam, ["amor", "casa", "ação"]);
   assert.deepEqual(fora, ["Davi", "P.S.", "casa", "ÓDIO", "ódio", "abc", "você"]);
 });
+
+test("empacotar: respeita o trecho, cola as pontas e usa todas as palavras", async () => {
+  const { empacotar } = await import("../site/assets/core.js");
+  const larguras = [30, 55, 22, 70, 40, 18, 62, 35, 26, 48];
+  let k = 0;
+  const gerar = () => k++ % larguras.length;
+  const pend = [];
+  const usadas = new Set();
+  for (let linha = 0; linha < 40; linha++) {
+    const L = 200 + (linha % 5) * 17;
+    const itens = empacotar(larguras, pend, gerar, L, 6, 12, 14);
+    for (const it of itens) usadas.add(it.i);
+    assert.ok(itens.length > 0);
+    const ultimo = itens.at(-1);
+    assert.ok(itens[0].x >= -1e-9, "começa dentro do trecho");
+    assert.ok(ultimo.x + larguras[ultimo.i] <= L + 1e-9, "termina dentro do trecho");
+    if (itens.length > 1 && (L - itens.reduce((s, it) => s + larguras[it.i], 0) - 6 * (itens.length - 1)) / (itens.length - 1) <= 14) {
+      assert.ok(itens[0].x < 1e-9 && L - (ultimo.x + larguras[ultimo.i]) < 1e-6, "pontas coladas quando justificável");
+    }
+  }
+  assert.equal(usadas.size, larguras.length);
+});

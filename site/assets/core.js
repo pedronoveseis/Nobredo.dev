@@ -66,3 +66,37 @@ export function partes(ms) {
   const t = Math.max(0, Math.floor(ms / 1000));
   return [Math.floor(t / 86400), Math.floor(t / 3600) % 24, Math.floor(t / 60) % 60, t % 60];
 }
+
+// Preenche um trecho de largura L com palavras da fila `pend` (índices; `gerar()` repõe o ciclo).
+// Segue a ordem da fila; perto da ponta, escolhe palavra mais curta para fechar a borda, e no fim
+// justifica a sobra (até `extraMax` por intervalo; acima disso, centraliza). Devolve [{ i, x }] com x relativo ao trecho.
+export function empacotar(larguras, pend, gerar, L, folga, janela, extraMax) {
+  const itens = [];
+  let restante = L;
+  for (;;) {
+    while (pend.length < janela) pend.push(gerar());
+    const gap = itens.length ? folga : 0;
+    const cabem = [];
+    for (let k = 0; k < janela; k++) if (larguras[pend[k]] + gap <= restante) cabem.push(k);
+    if (!cabem.length) break;
+    let k = cabem[0] === 0 ? 0 : cabem.reduce((a, b) => (larguras[pend[b]] > larguras[pend[a]] ? b : a));
+    // se a próxima da fila não deixaria espaço para outra palavra, fecha com a que melhor encaixa
+    const menor = Math.min(...cabem.map((c) => larguras[pend[c]]));
+    if (k === 0 && restante - gap - larguras[pend[0]] - folga < menor) {
+      k = cabem.reduce((a, b) => (larguras[pend[b]] > larguras[pend[a]] ? b : a));
+    }
+    const i = pend.splice(k, 1)[0];
+    itens.push({ i, x: 0 });
+    restante -= larguras[i] + gap;
+  }
+  if (!itens.length) return itens;
+  const n = itens.length;
+  const sobra = restante;
+  const extra = n > 1 && sobra / (n - 1) <= extraMax ? sobra / (n - 1) : 0;
+  let x = n > 1 && extra > 0 ? 0 : sobra / 2;
+  for (const it of itens) {
+    it.x = x;
+    x += larguras[it.i] + folga + extra;
+  }
+  return itens;
+}

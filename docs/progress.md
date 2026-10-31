@@ -99,3 +99,8 @@ Link dela: `https://<usuario>.github.io/<repo>/` (sem `#`). Para simular outra d
 - Ver localmente: dentro de `site/`, `python3 -m http.server` e abrir `http://localhost:8000/?data=2026-11-20T12:00:00-03:00`.
 - Trade-off aceito: repositório e site públicos, então as palavras e o `VOCE` ficam legíveis para quem abrir o código ou o arquivo. O `?data=` continua e pode sair depois de 21/11; não deve constar nos links enviados a ela. O histórico do Git guarda versões antigas.
 - Removidos: `cripto.js`, `pessoais.enc.json`, `tools/cifrar.mjs`, `tools/preview.mjs` e os testes de cifra e vazamento (trocados por `tools/pessoais.test.mjs`).
+
+## Forma com bordas retas e Agilera no ruído (31/10)
+- `empacotar` (em `core.js`): cada trecho de cada linha da máscara é preenchido seguindo a fila do ciclo; perto das pontas escolhe palavras mais curtas e depois justifica a sobra (até `f * 1.2` por intervalo), com margem entre trechos vizinhos. Testado em `tools/core.test.mjs`.
+- Espessura da máscara mantida em 0,09 (0,16 deixava o C e o E ilegíveis). As palavras do VOCE ficam na fonte do sistema; o ruído usa a Agilera (`--font-display`).
+
