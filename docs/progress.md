@@ -62,7 +62,7 @@
 1. Legibilidade da forma no celular (modo retrato): ajustar tamanho de fonte, espaçamento e quantidade de palavras com o conteúdo real.
 2. Painel de debug (`?debug`) com data fixa e slider.
 3. ~~Rodar os testes no workflow antes de publicar.~~ Feito: o workflow roda `node --test` antes do deploy.
-4. Afinar densidade e movimento do ruído quando não há chave.
+4. Afinar densidade e movimento do ruído quando não há chave. Em andamento: ruído em tela cheia, em grade com jitter, fonte 8 a 11 px; relógio em `100dvh` com altura medida; falta ver no celular e com o conteúdo real.
 5. Decidir se `?data=` continua ativo em produção.
 6. ~~Revisar `docs/arquitetura.md`~~ Feito: aviso de histórico no topo apontando para este arquivo.
 
