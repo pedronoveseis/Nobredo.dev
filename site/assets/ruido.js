@@ -17,12 +17,12 @@ doze dual duas duma duna dura duro duto ecrã edil égua eira eita eito eixe eix
 ente ergo ermo erva esmo essa esse esta está este éter etno etos evoé faca face faço fada fado faia
 fake fala fama faro fase fato fava favo feno fera fero feto fiar fiat fico fiel fila filo fina fino
 fins fita fito fixa fixo flor foca foco fofa fofo foge fogo fole folk fome fora foro foto frei fria
-frio fubá fuça fuga fula fulo fumê fumo funk furo fuso gado gaja gajo gala galã galé galo gama gana
+frio fubá fuça fuga fula fulo fumê fumo furo fuso gado gaja gajo gala galã galé galo gama gana
 gare gari gata gato gaze gelo gema gene gera gibi gira godo gogo gole gomo gota goto gral grão grau
 grei gris grua gude guia gume guri guru haja hall halo hein hera hexa hino hipo hoje homo hora humo
 iaiá içar idem idos ilha inda indo inté ioiô irão irar íris irmã isca ísis islã ismo isso isto item
 jabá jacá jaça jacu jaez jaja jato javé jeca jiló jipe joça jogo joia joio juba jugo juiz júri juro
-kilo kiwi laço lado lady lago laia lais laje lama lata lato lava leal leão leda ledo lêem leia lema
+kilo kiwi laço lado lago laia lais laje lama lata lato lava leal leão leda ledo lêem leia lema
 leme leoa lero leva leve levo liça lida lide lido liga lima limo link lira liso live lobo loca logo
 loja look lote luar luau lula lume luna luso luta luva luxo maça maçã maço maga mago maio maiô mais
 maís mala malê mana maná mané mano mãos mapa maré mata mate mato meça mega meia meio melô meme menu
@@ -30,7 +30,7 @@ mera mero mesa meta meus miau mica mico miga migo mimo mina mini mira miss mito 
 moda modo moer mola mole momo mona mono mora mote moto muar muco muda mudo mula muro musa naco nada
 nagô nano napa nata nato nave neca nega nego nela nele nenê neno néon nerd nero neto neve nexo noda
 nome nona nora noro nota nova nove novo numa nume nuns obra obus ócio ocre odre ogra ogro oiro oito
-óleo olha olho olmo olor onça onda onde ônix ônus opor oral orar orbe orla orto osso ouro paca paço
+óleo olha olho olmo olor onça onda onde ônus opor oral orar orbe orla orto osso ouro paca paço
 paga pagã pago pais país pajé pala palo pane pano papa papo para pata pato paul peão peba peça peço
 pede pedi pega pego peia pejo pela pele pelé pelo pena pera peru pesa peso peta pião pico pila pino
 pipa pira pisa piso piti pito pivô play pneu poça poço poda pode pôde poer poia pois poli polo pólo
