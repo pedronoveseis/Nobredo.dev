@@ -182,12 +182,7 @@ function quadro(t) {
     for (const r of ruido) {
       const x = r.base.x + Math.sin(k * 0.45 + r.fase) * 34;
       const y = r.base.y + Math.cos(k * 0.37 + r.fase * 1.3) * 26;
-      let texto = r.texto;
-      if (!reduzido) {
-        const ciclo = (t + r.fase * 900) % r.periodo;
-        if (ciclo < r.periodo * 0.35) texto = embaralhar(r.texto, Math.floor(t / 140) * 31 + ((r.fase * 1000) | 0));
-      }
-      ctx.fillText(texto, x, y);
+      ctx.fillText(r.texto, x, y);
     }
   }
 
