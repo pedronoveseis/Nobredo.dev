@@ -2,7 +2,7 @@ name: Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, claude/arquitetura-pedido-namoro]
   workflow_dispatch:
 
 permissions:
