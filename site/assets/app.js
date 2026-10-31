@@ -231,7 +231,7 @@ function quadro(t) {
 const nos = [];
 function relogio(n) {
   const antes = n < ALVO;
-  document.getElementById("rotulo").textContent = antes ? "Falta" : "Juntos há";
+  document.getElementById("rotulo").textContent = antes ? "Falta(m)" : "Juntos há";
   const el = document.getElementById("clock");
   if (!nos.length) {
     ["dias", "horas", "min", "seg"].forEach((r) => {
