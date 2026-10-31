@@ -29,14 +29,23 @@ let rank = [];
 // ---------- conteúdo pessoal (cifrado; a chave vem no #fragmento do link) ----------
 // Sem chave válida não há forma, palavra final nem encaixe: só ruído e relógio.
 async function carregarPessoais() {
+  // Pré-visualização local (tools/preview.mjs): lê os .txt sem cifrar. Só vale em localhost.
+  const local = ["localhost", "127.0.0.1"].includes(location.hostname) && new URLSearchParams(location.search).has("preview");
   const chave = location.hash.slice(1);
-  if (!chave) return;
+  if (!chave && !local) return;
   try {
-    const res = await fetch("assets/pessoais.enc.json", { cache: "no-cache" });
-    if (!res.ok) return;
-    const pacote = await decifrar(await res.json(), chave);
+    let pacote;
+    if (local) {
+      const res = await fetch("/__preview.json", { cache: "no-store" });
+      if (!res.ok) return;
+      pacote = await res.json();
+    } else {
+      const res = await fetch("assets/pessoais.enc.json", { cache: "no-cache" });
+      if (!res.ok) return;
+      pacote = await decifrar(await res.json(), chave);
+    }
     if (pacote && typeof pacote.palavra === "string" && Array.isArray(pacote.palavras) && pacote.palavras.length) {
-      final = pacote.palavra;
+      final = pacote.palavra.toLocaleUpperCase("pt-BR"); // a palavra final é sempre maiúscula
       palavras = ordem(pacote.palavras.length, SEED_PALAVRAS).map((i) => pacote.palavras[i]);
       canvas.setAttribute("role", "img");
       canvas.setAttribute("aria-label", final);
