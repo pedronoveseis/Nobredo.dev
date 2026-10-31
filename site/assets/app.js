@@ -213,6 +213,7 @@ function quadro(t) {
     if (it.p === null) it.p = alvo; // primeira vez: não anima o que já estava encaixado
     else it.p += Math.sign(alvo - it.p) * Math.min(Math.abs(alvo - it.p), dt / 1.8);
 
+    if (it.p <= 0 && alvo === 0) return; // ainda não é a vez dela: só surge ao encaixar
     const e = it.p * it.p * (3 - 2 * it.p);
     // soltas: vagam pela tela toda; ao encaixar, vão para o lugar
     const fx = it.base.x + Math.sin(k * 0.22 + it.fase) * W * 0.28 + Math.sin(k * 0.61 + it.fase * 2) * 30;
@@ -227,7 +228,7 @@ function quadro(t) {
       if (emTransito || ciclo < 0.7) texto = embaralhar(it.texto, Math.floor(t / (emTransito ? 90 : 160)) * 977 + ((it.fase * 1000) | 0));
     }
     ctx.fillStyle = cor("--color-accent");
-    ctx.globalAlpha = 0.45 + 0.55 * e;
+    ctx.globalAlpha = e; // surge em fade enquanto vai para o lugar
     ctx.fillText(texto, x, y);
   });
   ctx.globalAlpha = 1;

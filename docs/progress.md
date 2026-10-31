@@ -97,4 +97,5 @@ Link dela: `https://<usuario>.github.io/<repo>/#<chave>`. Para simular outra dat
 - `node tools/preview.mjs` serve `site/` em `http://localhost:8000/?preview&data=2026-11-20T12:00:00-03:00` e lê `pessoais.txt` e `palavra-final.txt` da raiz (fora do Git), sem cifrar. Edite os .txt e recarregue.
 - `?preview` só funciona em `localhost`/`127.0.0.1` e depende do servidor local; no site publicado não faz nada.
 - A palavra final é sempre desenhada em maiúsculas (`VOCE`), qualquer que seja a caixa no arquivo.
+- Decisão de 31/10: as palavras da forma só surgem (fade, vindo de fora) quando chega a vez de se encaixarem; antes disso não aparecem na tela.
 - Para publicar, ainda é preciso cifrar: `CHAVE=suachave node tools/cifrar.mjs pessoais.txt palavra-final.txt` e subir só o `pessoais.enc.json`.
