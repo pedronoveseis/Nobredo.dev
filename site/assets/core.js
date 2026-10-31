@@ -9,9 +9,11 @@ export function fracao(agora, inicio = INICIO, alvo = ALVO) {
   return Math.min(1, Math.max(0, (agora - inicio) / (alvo - inicio)));
 }
 
-// Encaixe lento no começo e rápido no fim: poucos encaixes isolados cedo, forma só perto do alvo.
+// Encaixe quase linear, um pouco mais calmo no começo: algo novo surge todo dia e a forma fecha no alvo.
+// Com ~278 palavras são ~7 no primeiro dia e ~14 por dia na média.
+const EXPOENTE = 1.2;
 export function curva(f) {
-  return f * f * f;
+  return f ** EXPOENTE;
 }
 
 export function mulberry32(seed) {

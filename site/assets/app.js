@@ -217,7 +217,7 @@ function quadro(t) {
       const ciclo = ((t + it.fase * 900) % it.periodo) / it.periodo;
       if (emTransito || ciclo < 0.7) texto = embaralhar(it.texto, Math.floor(t / (emTransito ? 90 : 160)) * 977 + ((it.fase * 1000) | 0));
     }
-    ctx.fillStyle = it.p >= 1 ? cor("--color-accent") : cor("--color-muted");
+    ctx.fillStyle = cor("--color-accent");
     ctx.globalAlpha = 0.45 + 0.55 * e;
     ctx.fillText(texto, x, y);
   });

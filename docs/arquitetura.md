@@ -186,7 +186,7 @@ MVP em validação. Fica para depois: visual e brand book, palavras reais (sem e
 | Forma | ~100 palavras pessoais (repetição permitida) formam a palavra final; desenho ocupa ~65% da área útil |
 | Cifra | Palavras pessoais em `site/assets/pessoais.enc.json` (AES-GCM). Chave no fragmento do link (`#chave`), nunca no repo. `node tools/cifrar.mjs pessoais.txt` gera o arquivo e imprime a chave; `pessoais.txt` está no `.gitignore` |
 | Sem chave | Ver seção 14: só ruído e relógio |
-| Encaixe | Curva `f³`: poucos encaixes no começo, forma só perto do fim |
+| Encaixe | Curva `f^1,2` (quase linear): palavras novas todo dia, ~14 por dia |
 | Datas | Animação 01/11 00h a 21/11 00h (-03:00). Contagem regressiva até 21/11 00h; depois progressiva desde 22/10 00h (30 dias em 21/11) |
 | Testes | `node --test tools/*.test.mjs` |
 

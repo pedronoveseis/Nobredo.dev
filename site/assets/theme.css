@@ -14,7 +14,7 @@
   --color-surface: #6b5d54;
   --color-text: #efdeb3;
   --color-timer: #e8b83f;
-  --color-accent: #efdeb3;  /* palavras da forma já encaixadas */
+  --color-accent: #e8b83f;  /* palavras da forma (vagando e encaixadas) */
   --color-muted: #c4b595;   /* palavras em trânsito, rótulos */
   --color-ruido: #a89c85;   /* palavras de fundo */
 

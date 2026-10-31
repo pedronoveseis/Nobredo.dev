@@ -24,11 +24,19 @@ test("progressiva marca 30 dias no alvo e 31 um dia depois", () => {
   assert.deepEqual(partes(ALVO + 86400e3 - JUNTOS_DESDE), [31, 0, 0, 0]);
 });
 
-test("curva: extremos, monotônica e lenta no começo", () => {
+test("curva: extremos, monotônica e suave", () => {
   assert.equal(curva(0), 0);
   assert.equal(curva(1), 1);
-  assert.ok(curva(0.5) < 0.15);
+  assert.ok(curva(0.5) > 0.3 && curva(0.5) < 0.5);
   for (let f = 0; f < 1; f += 0.05) assert.ok(curva(f + 0.05) >= curva(f));
+});
+
+test("ritmo: toda a virada de dia encaixa palavras novas", () => {
+  const DIA = 86400000;
+  for (let t = INICIO; t < ALVO; t += DIA) {
+    const novas = encaixadas(278, curva(fracao(t + DIA))) - encaixadas(278, curva(fracao(t)));
+    assert.ok(novas >= 5, `dia ${new Date(t).toISOString()}: só ${novas}`);
+  }
 });
 
 test("ruído: entre 900 e 1000 palavras de exatamente 4 letras, sem repetição", () => {

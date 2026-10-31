@@ -36,7 +36,7 @@
 
 **Produto e visual**
 - A forma só se lê bem com **muitas palavras curtas**. Com poucas ou longas, a fonte sai pequena e o contorno some, principalmente em celular no modo retrato.
-- Encaixe linear revela a forma cedo demais. A curva cúbica (`f³`) mantém quase tudo solto até perto do fim.
+- Decisão de 31/10: a curva cúbica (`f³`) escondia quase tudo até os últimos dias. Agora é `f^1,2` (`EXPOENTE` em `core.js`), com palavras novas todo dia, e a forma inteira (vagando e encaixada) em dourado `#E8B83F`.
 - Palavras de dicionário exigem triagem (sentido negativo, nomes próprios, siglas). A lista de exclusão fica em `tools/bloqueadas.txt`.
 - Um relógio simulado que reinicia a cada refresh atrapalha os testes. Fica para depois um painel de debug com data fixa.
 
