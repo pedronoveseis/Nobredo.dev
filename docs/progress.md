@@ -1,0 +1,94 @@
+# Progresso e checkpoint
+
+> Checkpoint do MVP: **2026-10-31**. O site está no ar no GitHub Pages, publicado a partir da `main`.
+> Este arquivo é público (repositório público): nada pessoal, nenhuma chave, nenhuma palavra do conteúdo cifrado.
+
+## 1. Onde estamos
+
+| Item | Estado |
+|---|---|
+| Site estático (HTML + CSS + JS puro, sem build) em `site/` | Pronto, no ar |
+| Animação: palavras que se embaralham e se encaixam numa forma | Pronta (MVP) |
+| Janela da animação | 01/11/2026 00h até 21/11/2026 00h (-03:00) |
+| Relógio | Regressivo até 21/11 00h; depois progressivo ("Juntos há"), com 30 dias em 21/11 |
+| Ruído (palavras de 4 letras) | ~940 palavras importadas e filtradas, ruído some em 21/11 00h |
+| Conteúdo pessoal cifrado (AES-GCM, chave no `#` do link) | Funcionando, com **conteúdo de teste** |
+| Sem chave no link | Só ruído e relógio; não existe forma nem palavra final |
+| Deploy | GitHub Actions → Pages, a cada push na `main` |
+| Testes | 16 testes (`node --test tools/*.test.mjs`), incluindo teste de vazamento |
+
+## 2. Linha do tempo das decisões
+
+1. **Rodadas 1 a 5 (arquitetura):** backend Ktor + SQLite + admin, conteúdo liberado pelo servidor. Esqueleto implementado e testado.
+2. **Rodada 6:** pivô para site estático no Netlify com função de tempo. Publicação por commit.
+3. **Rodada 7:** pivô para GitHub Pages e para a mecânica de palavras que se encaixam. Backend e admin saem; arquivados em `_arquivo/`.
+4. **Rodada 8:** ruído de 4 letras, palavras pessoais cifradas, desenho menor, janela 01/11 a 21/11.
+5. **Rodada 9:** sem chave nada aparece (nem forma nem palavra final); palavra final também cifrada; banco de ruído importado do dicionário com lista de exclusão.
+6. **Deploy:** `main` criada e definida como padrão; Pages ativo.
+
+## 3. Aprendizados
+
+**Segredo em site estático**
+- Em site estático com repositório público, tudo que está nos arquivos é legível. O que protege o conteúdo pessoal é cifrá-lo e deixar a chave **fora** do repo, no fragmento (`#`) do link. O fragmento não vai ao servidor nem ao `Referer`.
+- Limite honesto: quem tem o link completo lê o conteúdo; o histórico do Git é público e anterior à cifra.
+- "Sem chave" precisa ser um estado explícito do código (nada de modo de demonstração que revele a forma). Um teste varre `site/` procurando a palavra final em texto.
+- O parâmetro `?data=` serve para testar, mas também funciona em produção. Quem o usar vê estados futuros do relógio (não o conteúdo cifrado).
+
+**Produto e visual**
+- A forma só se lê bem com **muitas palavras curtas**. Com poucas ou longas, a fonte sai pequena e o contorno some, principalmente em celular no modo retrato.
+- Encaixe linear revela a forma cedo demais. A curva cúbica (`f³`) mantém quase tudo solto até perto do fim.
+- Palavras de dicionário exigem triagem (sentido negativo, nomes próprios, siglas). A lista de exclusão fica em `tools/bloqueadas.txt`.
+- Um relógio simulado que reinicia a cada refresh atrapalha os testes. Fica para depois um painel de debug com data fixa.
+
+**Infraestrutura**
+- O repositório nasceu sem `main`; a branch padrão era a de trabalho. O workflow dispara em `main`, então foi preciso criar a `main` e trocar a padrão.
+- O ambiente `github-pages` guarda uma regra de branches autorizadas. A `main` teve de ser adicionada ali, senão o job falha em 1 segundo, sem log.
+- `actions/configure-pages` falha enquanto o Pages não estiver ativado em Settings → Pages → Source: GitHub Actions.
+- Rede do container da sessão: domínios novos só valem depois que a regra de rede é aplicada; testar com `curl` antes de insistir.
+
+**Processo**
+- A arquitetura mudou três vezes (Ktor → Netlify → Pages). Manter o código antigo em `_arquivo/` custou pouco e preserva o caminho para o futuro app KMP.
+- No zsh interativo `#` não é comentário: não colar comandos com `# ...`. Sempre rodar da raiz do projeto ou usar `--directory`.
+
+## 4. Pendências
+
+**Do autor**
+- Enviar as ~100 palavras pessoais e confirmar a palavra final. Rodar `node tools/cifrar.mjs` e publicar o `pessoais.enc.json` novo; a chave nova gera um link novo.
+- Brand book: cores e fontes (só trocar `site/assets/theme.css`).
+- Revisar `tools/bloqueadas.txt` e `site/assets/ruido.js`.
+- Decidir sobre a branch antiga `claude/arquitetura-pedido-namoro` (apagar) e sobre o histórico do Git.
+
+**Técnicas (próximas rodadas)**
+1. Legibilidade da forma no celular (modo retrato): ajustar tamanho de fonte, espaçamento e quantidade de palavras com o conteúdo real.
+2. Painel de debug (`?debug`) com data fixa e slider.
+3. ~~Rodar os testes no workflow antes de publicar.~~ Feito: o workflow roda `node --test` antes do deploy.
+4. Afinar densidade e movimento do ruído quando não há chave. Em andamento: ruído em tela cheia, em grade com jitter, fonte 8 a 11 px; relógio em `100dvh` com altura medida; falta ver no celular e com o conteúdo real.
+5. Decidir se `?data=` continua ativo em produção.
+6. ~~Revisar `docs/arquitetura.md`~~ Feito: aviso de histórico no topo apontando para este arquivo.
+
+## 5. Como operar
+
+```sh
+# rodar local
+python3 -m http.server 8080 --directory site
+
+# testes
+node --test tools/*.test.mjs
+
+# conteúdo pessoal (arquivos locais, no .gitignore)
+node tools/cifrar.mjs pessoais.txt palavra-final.txt   # imprime a chave do link
+
+# ruído
+node tools/importar-ruido.mjs pagina.html
+```
+
+Link dela: `https://<usuario>.github.io/<repo>/#<chave>`. Para simular outra data: `?data=2026-11-10T12:00:00-03:00` antes do `#`.
+
+## 6. Próximos marcos
+
+| Data | O que acontece |
+|---|---|
+| 01/11 | Animação começa (a nuvem solta; poucos encaixes) |
+| Até 20/11 | Conteúdo real cifrado e publicado; ajustes visuais com o brand book |
+| 21/11 00h | Forma completa, ruído some, relógio vira "Juntos há 30 dias" |
+| Depois | Decidir o destino do site (manter, arquivar) e retomar o app KMP |

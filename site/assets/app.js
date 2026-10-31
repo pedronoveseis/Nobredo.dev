@@ -4,7 +4,6 @@ import { decifrar } from "./cripto.js";
 
 const SEED_PALAVRAS = 4;   // ordem das palavras ao longo da forma
 const SEED_ENCAIXE = 22;   // ordem em que as palavras se encaixam
-const RODAPE = 120;        // espaço do relógio (px)
 const ESCALA_FORMA = 0.65; // fração da área útil ocupada pelo desenho
 const FONTE_MAX = 28;
 const FADE_MS = 4000;      // sumiço do ruído em ALVO
@@ -20,7 +19,7 @@ const ctx = canvas.getContext("2d");
 const css = getComputedStyle(document.documentElement);
 const cor = (n) => css.getPropertyValue(n).trim();
 
-let W = 0, H = 0, fonteForma = 12, fonteRuido = 11;
+let W = 0, H = 0, RODAPE = 120, fonteForma = 12, fonteRuido = 9; // RODAPE: altura medida do relógio (px)
 let palavras = [];    // palavras pessoais (vazio sem chave: nada de forma)
 let final = "";       // palavra final; só existe depois de decifrar
 let ruido = [];       // { texto, base, fase, periodo }
@@ -120,7 +119,8 @@ function preencher(m, f) {
 // Maior fonte que ainda usa todas as palavras ao menos uma vez.
 function montar() {
   const dpr = devicePixelRatio || 1;
-  W = innerWidth; H = innerHeight;
+  W = canvas.clientWidth || innerWidth; H = canvas.clientHeight || innerHeight;
+  RODAPE = (document.getElementById("relogio").offsetHeight || 100) + 16;
   canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -137,7 +137,7 @@ function montar() {
     }
     fonteForma = lo;
   }
-  fonteRuido = Math.max(9, Math.min(13, W / 60 + 4));
+  fonteRuido = Math.max(8, Math.min(11, W / 90 + 4));
 
   const rnd = (a) => Math.abs((Math.sin(a * 127.1) * 43758.5453) % 1);
   const antigos = forma;
@@ -151,10 +151,18 @@ function montar() {
     periodo: 1800 + rnd(i + 9) * 2200,
     p: antigos[i]?.p ?? null,
   }));
-  const qtd = Math.min(RUIDO.length, Math.round((W * H) / 520));
-  ruido = ordem(RUIDO.length, 9).slice(0, qtd).map((idx, i) => ({
-    texto: RUIDO[idx],
-    base: { x: rnd(i + 301) * W, y: rnd(i + 677) * (H - RODAPE + 40) },
+  // Ruído em grade com jitter: cobre a tela toda sem empilhar palavras.
+  let cw = fonteRuido * 3, ch = fonteRuido * 2;
+  const f = Math.max(1, Math.sqrt((W * H) / (cw * ch * RUIDO.length)));
+  cw *= f; ch *= f;
+  const cols = Math.max(1, Math.floor(W / cw)), rows = Math.max(1, Math.floor(H / ch));
+  const celulas = Math.min(RUIDO.length, cols * rows);
+  cw = W / cols; ch = H / rows;
+  const palavrasRuido = ordem(RUIDO.length, 9);
+  ruido = ordem(cols * rows, 9).slice(0, celulas).map((c, i) => ({
+    texto: RUIDO[palavrasRuido[i]],
+    base: { x: (c % cols + 0.5 + (rnd(i + 301) - 0.5) * 0.5) * cw, y: (Math.floor(c / cols) + 0.5 + (rnd(i + 677) - 0.5) * 0.5) * ch },
+    ax: cw * 0.3, ay: ch * 0.3,
     fase: rnd(i + 15) * 6.28,
     periodo: 3000 + rnd(i + 19) * 4000,
   }));
@@ -179,16 +187,14 @@ function quadro(t) {
     ctx.font = `${fonteRuido}px ${cor("--font-body")}`;
     ctx.fillStyle = cor("--color-ruido");
     ctx.globalAlpha = 0.55 * vivo;
+    ctx.textAlign = "center";
     for (const r of ruido) {
-      const x = r.base.x + Math.sin(k * 0.45 + r.fase) * 34;
-      const y = r.base.y + Math.cos(k * 0.37 + r.fase * 1.3) * 26;
-      let texto = r.texto;
-      if (!reduzido) {
-        const ciclo = (t + r.fase * 900) % r.periodo;
-        if (ciclo < r.periodo * 0.35) texto = embaralhar(r.texto, Math.floor(t / 140) * 31 + ((r.fase * 1000) | 0));
-      }
-      ctx.fillText(texto, x, y);
+      const x = r.base.x + Math.sin(k * 0.45 + r.fase) * r.ax;
+      const y = r.base.y + Math.cos(k * 0.37 + r.fase * 1.3) * r.ay;
+      ctx.globalAlpha = (y > H - RODAPE ? 0.3 : 0.55) * vivo; // mais discreto atrás do relógio
+      ctx.fillText(r.texto, x, y);
     }
+    ctx.textAlign = "left";
   }
 
   // Palavras da forma.

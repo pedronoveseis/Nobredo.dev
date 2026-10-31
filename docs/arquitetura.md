@@ -2,7 +2,9 @@
 
 > **SUPERADO (rodada 7, 2026-10-31):** o projeto virou um site estático no GitHub Pages com palavras que se encaixam até formar a palavra final. Backend, admin e Netlify foram arquivados em `_arquivo/`. Ver seção 12. As seções 1 a 11 ficam como histórico.
 
-> Status: **pivô para site estático no Netlify + função de tempo** (rodada 6, ver seção 11). O backend Ktor (seções 2 a 10) fica **parqueado** para a fase do app KMP.
+> Estado atual do projeto: ver `docs/progress.md`. O texto abaixo (seções 1 a 11) é histórico.
+
+> Status (na época): **pivô para site estático no Netlify + função de tempo** (rodada 6, ver seção 11). O backend Ktor (seções 2 a 10) fica **parqueado** para a fase do app KMP.
 > Última atualização: 2026-10-03 (rodada 6).
 
 ## 1. Contexto
