@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { INICIO, ALVO, fracao, ordem, embaralhar, encaixadas, partes } from "../site/assets/core.js";
+import { INICIO, ALVO, JUNTOS_DESDE, fracao, curva, ordem, embaralhar, encaixadas, partes } from "../site/assets/core.js";
+import { RUIDO } from "../site/assets/ruido.js";
 
 test("fração: limites e meio da janela", () => {
   assert.equal(fracao(INICIO - 1), 0);
@@ -10,9 +11,28 @@ test("fração: limites e meio da janela", () => {
   assert.equal(fracao((INICIO + ALVO) / 2), 0.5);
 });
 
-test("janela: 01/11 00h até 22/11 16h (-03:00)", () => {
+test("datas: início 01/11, alvo 21/11 00h, juntos desde 22/10 (-03:00)", () => {
   assert.equal(new Date(INICIO).toISOString(), "2026-11-01T03:00:00.000Z");
-  assert.equal(new Date(ALVO).toISOString(), "2026-11-22T19:00:00.000Z");
+  assert.equal(new Date(ALVO).toISOString(), "2026-11-21T03:00:00.000Z");
+  assert.equal(new Date(JUNTOS_DESDE).toISOString(), "2026-10-22T03:00:00.000Z");
+});
+
+test("progressiva marca 30 dias no alvo e 31 um dia depois", () => {
+  assert.deepEqual(partes(ALVO - JUNTOS_DESDE), [30, 0, 0, 0]);
+  assert.deepEqual(partes(ALVO + 86400e3 - JUNTOS_DESDE), [31, 0, 0, 0]);
+});
+
+test("curva: extremos, monotônica e lenta no começo", () => {
+  assert.equal(curva(0), 0);
+  assert.equal(curva(1), 1);
+  assert.ok(curva(0.5) < 0.15);
+  for (let f = 0; f < 1; f += 0.05) assert.ok(curva(f + 0.05) >= curva(f));
+});
+
+test("ruído: 1000 palavras de exatamente 4 letras, sem repetição", () => {
+  assert.ok(RUIDO.length >= 900);
+  assert.ok(RUIDO.every((p) => [...p].length === 4));
+  assert.equal(new Set(RUIDO).size, RUIDO.length);
 });
 
 test("ordem: permutação determinística", () => {

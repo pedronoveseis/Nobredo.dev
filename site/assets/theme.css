@@ -8,6 +8,7 @@
   --color-text: #2b2a26;
   --color-muted: #7a766b;
   --color-accent: #e0a526;
+  --color-ruido: #a6a193;
 
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-display: Georgia, "Times New Roman", serif;
@@ -22,5 +23,6 @@
     --color-surface: #292823;
     --color-text: #f3efe5;
     --color-muted: #a6a193;
+    --color-ruido: #6f6b60;
   }
 }

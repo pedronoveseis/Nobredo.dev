@@ -1,11 +1,17 @@
 // Lógica pura (sem DOM), testada em tools/core.test.mjs.
 
-export const INICIO = Date.parse("2026-11-01T00:00:00-03:00");
-export const ALVO = Date.parse("2026-11-22T16:00:00-03:00");
+export const INICIO = Date.parse("2026-11-01T00:00:00-03:00"); // começa a animação
+export const ALVO = Date.parse("2026-11-21T00:00:00-03:00"); // forma completa
+export const JUNTOS_DESDE = Date.parse("2026-10-22T00:00:00-03:00"); // marca 30 dias em ALVO
 
 // 0 antes de INICIO, 1 em ALVO, linear no meio.
 export function fracao(agora, inicio = INICIO, alvo = ALVO) {
   return Math.min(1, Math.max(0, (agora - inicio) / (alvo - inicio)));
+}
+
+// Encaixe lento no começo e rápido no fim: poucos encaixes isolados cedo, forma só perto do alvo.
+export function curva(f) {
+  return f * f * f;
 }
 
 export function mulberry32(seed) {

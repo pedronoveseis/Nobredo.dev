@@ -1,9 +1,13 @@
-import { INICIO, ALVO, fracao, ordem, embaralhar, encaixadas, partes } from "./core.js";
-import { WORDS } from "./words.js";
+import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, embaralhar, encaixadas, partes } from "./core.js";
+import { RUIDO } from "./ruido.js";
+import { decifrar } from "./cripto.js";
 
-const SEED_SLOTS = 4;   // ordem das palavras dentro da forma
-const SEED_REVEAL = 22; // ordem em que as palavras se encaixam
-const RODAPE = 120;     // espaço reservado ao relógio (px)
+const SEED_PALAVRAS = 4;   // ordem das palavras ao longo da forma
+const SEED_ENCAIXE = 22;   // ordem em que as palavras se encaixam
+const RODAPE = 120;        // espaço do relógio (px)
+const ESCALA_FORMA = 0.65; // fração da área útil ocupada pelo desenho
+const FONTE_MAX = 28;
+const FADE_MS = 4000;      // sumiço do ruído em ALVO
 
 // ?data=2026-11-10T12:00:00-03:00 simula outra data (o tempo segue correndo a partir dela).
 const simulada = Date.parse(new URLSearchParams(location.search).get("data") ?? "");
@@ -16,18 +20,32 @@ const ctx = canvas.getContext("2d");
 const css = getComputedStyle(document.documentElement);
 const cor = (n) => css.getPropertyValue(n).trim();
 
-const palavras = ordem(WORDS.length, SEED_SLOTS).map((i) => WORDS[i]);
-const rank = new Array(palavras.length); // rank[i] = posição de encaixe da palavra i
-ordem(palavras.length, SEED_REVEAL).forEach((idx, r) => (rank[idx] = r));
+let W = 0, H = 0, fonteForma = 12, fonteRuido = 11;
+let palavras = RUIDO; // palavras da forma; trocadas pelas pessoais se a chave servir
+let ruido = [];       // { texto, base, fase, periodo }
+let forma = [];       // { texto, slot, base, fase, periodo, rank, p }
+let rank = [];
 
-let W = 0, H = 0, fonte = 8;
-let itens = []; // { texto, slot:{x,y}, base:{x,y}, fase, periodo, p }
+// ---------- palavras pessoais (cifradas; a chave vem no #fragmento do link) ----------
+async function carregarPessoais() {
+  const chave = location.hash.slice(1);
+  if (!chave) return;
+  try {
+    const res = await fetch("assets/pessoais.enc.json", { cache: "no-cache" });
+    if (!res.ok) return;
+    const lista = await decifrar(await res.json(), chave);
+    if (lista?.length) palavras = ordem(lista.length, SEED_PALAVRAS).map((i) => lista[i]);
+  } catch {
+    /* sem rede ou arquivo ausente: fica com o modo de demonstração */
+  }
+}
 
 // ---------- forma VOCÊ ----------
 function mascara() {
   const retrato = W < H;
   const linhas = retrato ? ["VO", "CÊ"] : ["VOCÊ"];
-  const area = { w: W * 0.92, h: H - RODAPE - 24 };
+  const util = H - RODAPE;
+  const area = { w: W * ESCALA_FORMA, h: util * ESCALA_FORMA };
   const off = document.createElement("canvas");
   off.width = W; off.height = H;
   const c = off.getContext("2d", { willReadFrequently: true });
@@ -35,7 +53,7 @@ function mascara() {
   let tam = 200;
   c.font = `900 ${tam}px ${familia}`;
   const largura = Math.max(...linhas.map((l) => c.measureText(l).width));
-  tam = Math.min(tam * (area.w / largura), (area.h / linhas.length) / 1.0);
+  tam = Math.min(tam * (area.w / largura), area.h / linhas.length);
   c.font = `900 ${tam}px ${familia}`;
   c.textAlign = "center";
   c.textBaseline = "alphabetic";
@@ -43,11 +61,11 @@ function mascara() {
   c.lineJoin = "round";
   c.lineWidth = tam * 0.09; // engrossa as letras para caberem mais palavras
   const alturaTotal = tam * 0.82 * linhas.length + tam * 0.18 * (linhas.length - 1);
-  let y = (area.h - alturaTotal) / 2 + 24 / 2 + tam * 0.82 + tam * 0.1;
+  let y = (util - alturaTotal) / 2 + tam * 0.82 + tam * 0.1;
   for (const l of linhas) {
     c.fillText(l, W / 2, y);
     c.strokeText(l, W / 2, y);
-    y += tam * 1.0;
+    y += tam;
   }
   const px = c.getImageData(0, 0, W, H).data;
   const m = new Uint8Array(W * H);
@@ -67,31 +85,29 @@ function cabe(m, x, y, w, h) {
   return true;
 }
 
-// Preenche a forma com as palavras em linhas; devolve slots (por palavra) ou null se não couberem todas.
+// Preenche toda a forma, repetindo as palavras em ciclo. Devolve [{ i, x, y }].
 function preencher(m, f) {
   ctx.font = `${f}px ${cor("--font-body")}`;
   const larguras = palavras.map((p) => ctx.measureText(p).width);
   const folga = f * 0.4;
-  const slots = new Array(palavras.length);
-  const resto = palavras.map((_, i) => i); // índices ainda sem lugar
+  const slots = [];
   const passo = f * 1.15;
-  for (let y = passo; y < H - RODAPE && resto.length; y += passo) {
+  let k = 0;
+  for (let y = passo; y < H - RODAPE; y += passo) {
     let x = 0;
-    while (x < W && resto.length) {
-      // tenta as próximas palavras da fila: a primeira que cabe neste ponto
-      let k = -1;
-      for (let c = 0; c < Math.min(40, resto.length); c++) {
-        if (cabe(m, x, y, larguras[resto[c]], f * 0.6)) { k = c; break; }
-      }
-      if (k < 0) { x += 2; continue; }
-      const i = resto.splice(k, 1)[0];
-      slots[i] = { x, y };
-      x += larguras[i] + folga;
+    while (x < W) {
+      const i = k % palavras.length;
+      if (cabe(m, x, y, larguras[i], f * 0.6)) {
+        slots.push({ i, x, y });
+        x += larguras[i] + folga;
+        k++;
+      } else x += 2;
     }
   }
-  return resto.length === 0 ? slots : null;
+  return slots;
 }
 
+// Maior fonte que ainda usa todas as palavras ao menos uma vez.
 function montar() {
   const dpr = devicePixelRatio || 1;
   W = innerWidth; H = innerHeight;
@@ -100,24 +116,33 @@ function montar() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   const m = mascara();
-  let lo = 3, hi = 40, slots = null;
-  for (let i = 0; i < 9; i++) {
+  let lo = 3, hi = FONTE_MAX, slots = preencher(m, lo);
+  for (let n = 0; n < 9; n++) {
     const mid = (lo + hi) / 2;
     const s = preencher(m, mid);
-    if (s) { lo = mid; slots = s; } else hi = mid;
+    if (s.length >= palavras.length) { lo = mid; slots = s; } else hi = mid;
   }
-  fonte = lo;
-  if (!slots) slots = preencher(m, lo) ?? [];
+  fonteForma = lo;
+  fonteRuido = Math.max(9, Math.min(13, W / 60 + 4));
 
-  const antigos = itens;
-  const rand = (a) => (Math.sin(a * 127.1) * 43758.5453) % 1;
-  itens = palavras.map((texto, i) => ({
-    texto,
-    slot: slots[i] ?? { x: W / 2, y: H / 2 },
-    base: { x: 20 + Math.abs(rand(i + 1)) * (W - 40), y: 20 + Math.abs(rand(i + 77)) * (H - RODAPE - 40) },
-    fase: Math.abs(rand(i + 5)) * 6.28,
-    periodo: 2500 + Math.abs(rand(i + 9)) * 3500,
+  const rnd = (a) => Math.abs((Math.sin(a * 127.1) * 43758.5453) % 1);
+  const antigos = forma;
+  rank = new Array(slots.length);
+  ordem(slots.length, SEED_ENCAIXE).forEach((idx, r) => (rank[idx] = r));
+  forma = slots.map((s, i) => ({
+    texto: palavras[s.i],
+    slot: { x: s.x, y: s.y },
+    base: { x: rnd(i + 1) * W, y: rnd(i + 77) * (H - RODAPE) },
+    fase: rnd(i + 5) * 6.28,
+    periodo: 1800 + rnd(i + 9) * 2200,
     p: antigos[i]?.p ?? null,
+  }));
+  const qtd = Math.min(RUIDO.length, Math.round((W * H) / 520));
+  ruido = ordem(RUIDO.length, 9).slice(0, qtd).map((idx, i) => ({
+    texto: RUIDO[idx],
+    base: { x: rnd(i + 301) * W, y: rnd(i + 677) * (H - RODAPE + 40) },
+    fase: rnd(i + 15) * 6.28,
+    periodo: 3000 + rnd(i + 19) * 4000,
   }));
 }
 
@@ -127,54 +152,69 @@ let ultimo = performance.now();
 function quadro(t) {
   const dt = Math.min(0.1, (t - ultimo) / 1000);
   ultimo = t;
-  const f = fracao(agora());
-  const feitas = encaixadas(itens.length, f);
+  const n = agora();
+  const feitas = encaixadas(forma.length, curva(fracao(n)));
+  const k = reduzido ? 0 : t / 1000;
 
   ctx.clearRect(0, 0, W, H);
-  ctx.font = `${fonte}px ${cor("--font-body")}`;
   ctx.textBaseline = "middle";
 
-  itens.forEach((it, i) => {
+  // Ruído: some em ALVO e não volta.
+  const vivo = reduzido ? (n < ALVO ? 1 : 0) : 1 - Math.min(1, Math.max(0, (n - ALVO) / FADE_MS));
+  if (vivo > 0) {
+    ctx.font = `${fonteRuido}px ${cor("--font-body")}`;
+    ctx.fillStyle = cor("--color-ruido");
+    ctx.globalAlpha = 0.55 * vivo;
+    for (const r of ruido) {
+      const x = r.base.x + Math.sin(k * 0.45 + r.fase) * 34;
+      const y = r.base.y + Math.cos(k * 0.37 + r.fase * 1.3) * 26;
+      let texto = r.texto;
+      if (!reduzido) {
+        const ciclo = (t + r.fase * 900) % r.periodo;
+        if (ciclo < r.periodo * 0.35) texto = embaralhar(r.texto, Math.floor(t / 140) * 31 + ((r.fase * 1000) | 0));
+      }
+      ctx.fillText(texto, x, y);
+    }
+  }
+
+  // Palavras da forma.
+  ctx.font = `${fonteForma}px ${cor("--font-body")}`;
+  forma.forEach((it, i) => {
     const alvo = rank[i] < feitas ? 1 : 0;
-    if (it.p === null) it.p = alvo; // primeira vez: sem animar o que já estava encaixado
-    else it.p += Math.sign(alvo - it.p) * Math.min(Math.abs(alvo - it.p), dt / 1.6);
+    if (it.p === null) it.p = alvo; // primeira vez: não anima o que já estava encaixado
+    else it.p += Math.sign(alvo - it.p) * Math.min(Math.abs(alvo - it.p), dt / 1.8);
 
     const e = it.p * it.p * (3 - 2 * it.p);
-    const k = reduzido ? 0 : t / 1000;
-    const fx = it.base.x + Math.sin(k * 0.4 + it.fase) * 28;
-    const fy = it.base.y + Math.cos(k * 0.33 + it.fase * 1.3) * 22;
-    const x = fx + (it.slot.x - fx) * e;
-    const y = fy + (it.slot.y - fy) * e;
+    // soltas: vagam pela tela toda; ao encaixar, vão para o lugar
+    const fx = it.base.x + Math.sin(k * 0.22 + it.fase) * W * 0.28 + Math.sin(k * 0.61 + it.fase * 2) * 30;
+    const fy = it.base.y + Math.cos(k * 0.19 + it.fase * 1.3) * (H - RODAPE) * 0.28 + Math.cos(k * 0.53 + it.fase) * 24;
+    const x = Math.min(W - 10, Math.max(10, fx)) * (1 - e) + it.slot.x * e;
+    const y = Math.min(H - RODAPE, Math.max(10, fy)) * (1 - e) + it.slot.y * e;
 
     let texto = it.texto;
     if (!reduzido && it.p < 1) {
-      const emTransito = it.p > 0 && it.p < 0.85;
-      const bucket = emTransito ? Math.floor(t / 110) : Math.floor((t + it.fase * 900) / it.periodo);
-      const dentro = ((t + it.fase * 900) % it.periodo) / it.periodo;
-      if (emTransito || dentro < 0.3) texto = embaralhar(it.texto, bucket * 977 + (it.fase * 1000) | 0);
+      const emTransito = it.p > 0.02;
+      const ciclo = ((t + it.fase * 900) % it.periodo) / it.periodo;
+      if (emTransito || ciclo < 0.7) texto = embaralhar(it.texto, Math.floor(t / (emTransito ? 90 : 160)) * 977 + ((it.fase * 1000) | 0));
     }
-
     ctx.fillStyle = it.p >= 1 ? cor("--color-accent") : cor("--color-muted");
-    ctx.globalAlpha = 0.35 + 0.65 * e;
+    ctx.globalAlpha = 0.45 + 0.55 * e;
     ctx.fillText(texto, x, y);
   });
   ctx.globalAlpha = 1;
 
-  relogio();
+  relogio(n);
   requestAnimationFrame(quadro);
 }
 
 // ---------- relógio ----------
 const nos = [];
-function relogio() {
-  const n = agora();
+function relogio(n) {
   const antes = n < ALVO;
-  const ms = antes ? ALVO - n : n - ALVO;
   document.getElementById("rotulo").textContent = antes ? "Falta" : "Juntos há";
   const el = document.getElementById("clock");
-  const rotulos = ["dias", "horas", "min", "seg"];
   if (!nos.length) {
-    rotulos.forEach((r) => {
+    ["dias", "horas", "min", "seg"].forEach((r) => {
       const u = document.createElement("div");
       u.className = "unit";
       const v = document.createElement("span"); v.className = "value";
@@ -184,9 +224,9 @@ function relogio() {
       nos.push(v);
     });
   }
-  partes(ms).forEach((v, i) => (nos[i].textContent = String(v).padStart(2, "0")));
+  partes(antes ? ALVO - n : n - JUNTOS_DESDE).forEach((v, i) => (nos[i].textContent = String(v).padStart(2, "0")));
 }
 
 let redim;
 addEventListener("resize", () => { clearTimeout(redim); redim = setTimeout(montar, 150); });
-(document.fonts?.ready ?? Promise.resolve()).then(() => { montar(); requestAnimationFrame(quadro); });
+Promise.all([carregarPessoais(), document.fonts?.ready]).then(() => { montar(); requestAnimationFrame(quadro); });

@@ -175,3 +175,17 @@ Fica em aberto: ver se o plano gratuito do Netlify basta (funções, banda) e se
 | Teste | `?data=` simula outra data |
 
 MVP em validação. Fica para depois: visual e brand book, palavras reais (sem expor nada pessoal em repo público), motivo recorrente, estado no link.
+
+## 13. Rodada 8: ruído de 4 letras, palavras pessoais cifradas, datas novas
+
+| Tema | Decisão |
+|---|---|
+| Ruído | ~1000 palavras de exatamente 4 letras (`site/assets/ruido.js`, lista de teste até o autor enviar o banco). Somem em 4 s em `ALVO` |
+| Forma | ~100 palavras pessoais (repetição permitida) formam o VOCÊ; desenho ocupa ~65% da área útil |
+| Cifra | Palavras pessoais em `site/assets/pessoais.enc.json` (AES-GCM). Chave no fragmento do link (`#chave`), nunca no repo. `node tools/cifrar.mjs pessoais.txt` gera o arquivo e imprime a chave; `pessoais.txt` está no `.gitignore` |
+| Sem chave | Modo de demonstração: a forma usa o ruído |
+| Encaixe | Curva `f³`: poucos encaixes no começo, forma só perto do fim |
+| Datas | Animação 01/11 00h a 21/11 00h (-03:00). Contagem regressiva até 21/11 00h; depois progressiva desde 22/10 00h (30 dias em 21/11) |
+| Testes | `node --test tools/*.test.mjs` |
+
+Rodar local: `cd site && python3 -m http.server 8080`; simular data com `?data=2026-11-10T12:00:00-03:00`. Publicar: Settings → Pages → Source: GitHub Actions (workflow em `.github/workflows/pages.yml`, dispara no `main`).

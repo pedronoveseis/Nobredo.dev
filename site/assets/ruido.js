@@ -1,0 +1,54 @@
+// Ruído: palavras de EXATAMENTE 4 letras. Lista de TESTE (parte real, parte pronunciável).
+// O autor substitui por seu banco de ~1000 palavras. Repositório público: nada pessoal aqui.
+export const RUIDO = `
+vanu nude sevo duna ribu cida seta vosa repa vini fune ripo fece lote vapi vife noso somo lutu ruas
+cado pori gapo atum bebi bero bisa febu gapu garo miva cadu roro dida bepe vedo gara pavo povu fini
+fure tebe negi asas mabu moda supu rago mira bicu tofa remo puma tugi vilo runo fufo lido pivu vida
+losi cidi bili vapa bufu veno sipi teti mici fitu leci rage mugo vuta nona mive pipo dugo sega comu
+dufi cavi midu dale vese jaca casa gato nipi nunu pebu fufa tiri lepe supe nala tori fife bevi gise
+sovu polu gaca fame cima pero nero fedo niro tudo fesa ceru tapa tamo vopo vifi tata bigi doso uvas
+rata gade ligu pipa bosi gabi tevi sanu fano lupa dimi gusu buvu picu lago tase tema cepo subu sivi
+bira meva mecu pici bane mami gule puco mube chao nabi vafe mesi gebo lofo laci sicu rimo tusi fifo
+voce ripi begu vaga teso nege dage cefo remu tedo catu lalu tifu piga lafi tefi rulo tula vade rera
+voar fege lino alma fofa cagi topo siva tuvi dama gipo gupe nivo mapo rosu dori savo fona fena vubi
+reco tave raca taxa mono muti vuva dace tatu nipu pate taba remi bubu lama mato rilu duse nuga siga
+bire cete poco fada fuca capa sado nugo pola refu fenu bifo pufa gufa todo gibu povi vucu vafu nuni
+sade deta mito solu pesi soti fugo vupo vero arte vipa sapi lase lumu govi suvu pico lini delu loma
+vila nevi meni some cami rinu dedo ganu vogo panu tabe fico pote juro vonu mola ridu puda coti mota
+lusi duvu bali poli cilu geso lada niva bevo vego samo meso noro bige rate fogi pape tiga letu rogi
+giro tabo romo reso megi fubu gubi bala toti nogo rego rura taca mape pina meri bugi pila deni luri
+vasi pege rogu mesa deco bacu ouro pafe muro beme sera pelo robe nupu segu cipo luci nila rive bibo
+cite rina gido paca rude nucu nada live tira depi lubu goca bila liba poca sofa fapo peru geci lete
+roxo guci gafa vira polo dete vugo vore sabo nule code sono rosa dobo fuba toru defa dilo vevu sopa
+cole pame copo dovu fepe legu veta item figu nife gumu geme lano boge lile caro rabi sasu madi vace
+foma gura nefi sebo sepu bife cate fofo vocu cube gofi defi tole sude tene liru busu dica pura muco
+luva gufo dafu rice figo gamo nupa bemu bafi bebu cuno revi pore cina risu loca vise vupe dafo negu
+vobe musa rapi sede fema loli lagu fobu soni mopo pigu fava cipu feri cavu gami giva puto diti tevu
+cudu guro docu dafi lolo tabi fios liri lacu neso cili nome goso lege vobu gure libi vela raio vime
+cibu vimu fube cifa deri lume tono rusa guma lipo cafe dora deti cena togi saba luse foto loro veci
+rute cora nufe iglu mipi rini done pibe cada trem luba faci bege dura bomi vugi zoom rime cufe nigu
+rise ralo cogo guia seco mefu bati vuvo nite nosi foba fiel moso boto lefa noti buni laco papu dapi
+bufa noda rima nopa cera ripa mofu tame lava vuru sibo safa sari sabe toro mobe nofi bedi gupi fazo
+mubo nuli daba luve cupe tolu salu cegu mevo gape fubo sefi meti monu fipu lona risi sora rudo vesa
+disu sobe fele feli cosi divi lotu mude dosa nitu fuvi pise dulu tule subi cana radu sedo loja tego
+mudi licu vano babe mave pelu calu lecu nato decu gunu cono geti lamo sapo reva fica bapo teta dado
+dege mote sise beno pegi vemo mepi bolo vufo fici mitu citu dute voni voba fogo gaco riti mula grao
+saca gutu puva baca napo dafa babu leve midi soto amor nufo nigi tagi fora fosa rure onda vava cuta
+dipu gegu fata ceme rofa moti mate bobo nime fera pomo pinu mogi cusu gapi gulo lasa cene tasa nota
+rebi nugi vale cidu flor cape lige nepa cego selo nuge dasa rira runu cuga bace recu femu renu devo
+divu sane funa popa felo lori raba soce teme nena rena lodi pisa moce ticu lara cemu vefe bopi pedu
+suma gema guco lado suco lufi lope diru luli fulo cubi limo uiva finu mala coce tubi seva fato pive
+dube befi cefi lira gopo zero lare muli simi sigi sulo gece rufu fuga pace redo vodu tavo gace pele
+buna pani demu nano pica lagi gimi nura memi tuto curo buce cobi niru mufe vage nate cuva cedo dubo
+doce duge bivu bore tofo suli nolu damu ruvi nefo tela gego dudi mosi doto viga sifo save tite neca
+rafo tipo mimo bado tibu gatu fome sebu vori cita gope bade laba pubu vupi givo puba debe reno dubi
+pomu tufa peve cira gani fadu pige niba roto dela pota mupe cisu bida vadi rucu peli ilha temu mare
+tesu sunu nomo cugu nopo copi erva novo fafi hora geve miba dile foda revo suda anel gota dona gose
+lafo fegi deba fetu potu guvo poto naro vege lita pofa quem firi pato bodi fago leao tura sala mipo
+mugu toca gime fufi vunu pebe fudi defu dope mufi lufu vagi dumu pata lasu cese giri covu mogo foge
+ceve reto jogo rine guna rega basa lisu godi sisu mado pavi sino fode sore bipu dera pano pilu lufa
+sure gili mapa pido rupe maca codu bure gera lima noco vota runa dima cimo patu cato sopu cuia tore
+pevi meia dois vafi mofo vica eixo teve azul rede tevo dita bivo vuse seri caso sube poso dago vadu
+rade rafe luce pogo toce muno topi voge nupo mila dume leru rati dicu came fupe nafa sobu guti moni
+vule fili nelo fila fusu dasi dali rici cide relu devi nicu reri rene vilu cudi guto duve comi dodi
+`.split(/\s+/).filter(Boolean);
