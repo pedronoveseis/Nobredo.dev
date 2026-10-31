@@ -1,6 +1,5 @@
 import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, embaralhar, encaixadas, partes } from "./core.js";
 import { RUIDO } from "./ruido.js";
-import { decifrar } from "./cripto.js";
 
 const SEED_PALAVRAS = 4;   // ordem das palavras ao longo da forma
 const SEED_ENCAIXE = 22;   // ordem em que as palavras se encaixam
@@ -20,38 +19,30 @@ const css = getComputedStyle(document.documentElement);
 const cor = (n) => css.getPropertyValue(n).trim();
 
 let W = 0, H = 0, RODAPE = 120, fonteForma = 12, fonteRuido = 9; // RODAPE: altura medida do relógio (px)
-let palavras = [];    // palavras pessoais (vazio sem chave: nada de forma)
-let final = "";       // palavra final; só existe depois de decifrar
+let palavras = [];    // palavras pessoais (vazio se não carregarem: nada de forma)
+let final = "";       // palavra final; vem de palavra-final.txt
 let ruido = [];       // { texto, base, fase, periodo }
 let forma = [];       // { texto, slot, base, fase, periodo, rank, p }
 let rank = [];
 
-// ---------- conteúdo pessoal (cifrado; a chave vem no #fragmento do link) ----------
-// Sem chave válida não há forma, palavra final nem encaixe: só ruído e relógio.
+// ---------- conteúdo pessoal (texto simples em site/assets/*.txt) ----------
+// Se os arquivos faltarem ou falharem, não há forma: só ruído e relógio.
+const linhas = (txt) => txt.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
 async function carregarPessoais() {
-  // Pré-visualização local (tools/preview.mjs): lê os .txt sem cifrar. Só vale em localhost.
-  const local = ["localhost", "127.0.0.1"].includes(location.hostname) && new URLSearchParams(location.search).has("preview");
-  const chave = location.hash.slice(1);
-  if (!chave && !local) return;
   try {
-    let pacote;
-    if (local) {
-      const res = await fetch("/__preview.json", { cache: "no-store" });
-      if (!res.ok) return;
-      pacote = await res.json();
-    } else {
-      const res = await fetch("assets/pessoais.enc.json", { cache: "no-cache" });
-      if (!res.ok) return;
-      pacote = await decifrar(await res.json(), chave);
-    }
-    if (pacote && typeof pacote.palavra === "string" && Array.isArray(pacote.palavras) && pacote.palavras.length) {
-      final = pacote.palavra.toLocaleUpperCase("pt-BR"); // a palavra final é sempre maiúscula
-      palavras = ordem(pacote.palavras.length, SEED_PALAVRAS).map((i) => pacote.palavras[i]);
+    const [rp, rf] = await Promise.all([fetch("assets/pessoais.txt", { cache: "no-cache" }), fetch("assets/palavra-final.txt", { cache: "no-cache" })]);
+    if (!rp.ok || !rf.ok) return;
+    const lista = linhas(await rp.text());
+    const palavra = linhas(await rf.text())[0];
+    if (palavra && lista.length) {
+      final = palavra.toLocaleUpperCase("pt-BR"); // a palavra final é sempre maiúscula
+      palavras = ordem(lista.length, SEED_PALAVRAS).map((i) => lista[i]);
       canvas.setAttribute("role", "img");
       canvas.setAttribute("aria-label", final);
     }
   } catch {
-    /* sem rede, arquivo ausente ou chave errada: só ruído */
+    /* sem rede ou arquivo ausente: só ruído */
   }
 }
 

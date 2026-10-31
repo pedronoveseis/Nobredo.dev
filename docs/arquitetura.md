@@ -178,6 +178,8 @@ Fica em aberto: ver se o plano gratuito do Netlify basta (funções, banda) e se
 
 MVP em validação. Fica para depois: visual e brand book, palavras reais (sem expor nada pessoal em repo público), motivo recorrente, estado no link.
 
+> **Superado em 31/10:** a cifra e a chave (seções 13 e 14) foram removidas. As palavras e a palavra final ficam em texto em `site/assets/pessoais.txt` e `palavra-final.txt`. Ver `docs/progress.md`, "Sem cifra".
+
 ## 13. Rodada 8: ruído de 4 letras, palavras pessoais cifradas, datas novas
 
 | Tema | Decisão |

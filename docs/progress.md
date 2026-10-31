@@ -1,7 +1,7 @@
 # Progresso e checkpoint
 
 > Checkpoint do MVP: **2026-10-31**. O site está no ar no GitHub Pages, publicado a partir da `main`.
-> Este arquivo é público (repositório público): nada pessoal, nenhuma chave, nenhuma palavra do conteúdo cifrado.
+> Este arquivo é público (repositório público). Desde 31/10 as palavras pessoais também estão em texto em `site/assets/` (ver "Sem cifra" no fim); onde este documento fala de cifra e chave, vale a seção "Sem cifra".
 
 ## 1. Onde estamos
 
@@ -12,10 +12,10 @@
 | Janela da animação | 01/11/2026 00h até 21/11/2026 00h (-03:00) |
 | Relógio | Regressivo até 21/11 00h; depois progressivo ("Juntos há"), com 30 dias em 21/11 |
 | Ruído (palavras de 4 letras) | ~940 palavras importadas e filtradas, ruído some em 21/11 00h |
-| Conteúdo pessoal cifrado (AES-GCM, chave no `#` do link) | Funcionando, com **conteúdo de teste** |
-| Sem chave no link | Só ruído e relógio; não existe forma nem palavra final |
+| Conteúdo pessoal em `site/assets/pessoais.txt` e `palavra-final.txt` (sem cifra desde 31/10) | Funcionando |
+| Se os `.txt` não carregam | Só ruído e relógio |
 | Deploy | GitHub Actions → Pages, a cada push na `main` |
-| Testes | 16 testes (`node --test tools/*.test.mjs`), incluindo teste de vazamento |
+| Testes | `node --test tools/*.test.mjs` |
 
 ## 2. Linha do tempo das decisões
 
@@ -75,27 +75,27 @@ python3 -m http.server 8080 --directory site
 # testes
 node --test tools/*.test.mjs
 
-# conteúdo pessoal (arquivos locais, no .gitignore)
-node tools/cifrar.mjs pessoais.txt palavra-final.txt   # imprime a chave do link
+# ver o site localmente (dentro de site/)
+python3 -m http.server
 
 # ruído
 node tools/importar-ruido.mjs pagina.html
 ```
 
-Link dela: `https://<usuario>.github.io/<repo>/#<chave>`. Para simular outra data: `?data=2026-11-10T12:00:00-03:00` antes do `#`.
+Link dela: `https://<usuario>.github.io/<repo>/` (sem `#`). Para simular outra data: `?data=2026-11-10T12:00:00-03:00`.
 
 ## 6. Próximos marcos
 
 | Data | O que acontece |
 |---|---|
 | 01/11 | Animação começa (a nuvem solta; poucos encaixes) |
-| Até 20/11 | Conteúdo real cifrado e publicado; ajustes visuais com o brand book |
+| Até 20/11 | Conteúdo real publicado em `site/assets/*.txt`; ajustes visuais com o brand book |
 | 21/11 00h | Forma completa, ruído some, relógio vira "Juntos há 30 dias" |
 | Depois | Decidir o destino do site (manter, arquivar) e retomar o app KMP |
 
-## Preview local sem cifrar (31/10)
-- `node tools/preview.mjs` serve `site/` em `http://localhost:8000/?preview&data=2026-11-20T12:00:00-03:00` e lê `pessoais.txt` e `palavra-final.txt` da raiz (fora do Git), sem cifrar. Edite os .txt e recarregue.
-- `?preview` só funciona em `localhost`/`127.0.0.1` e depende do servidor local; no site publicado não faz nada.
-- A palavra final é sempre desenhada em maiúsculas (`VOCE`), qualquer que seja a caixa no arquivo.
-- Decisão de 31/10: as palavras da forma só surgem (fade, vindo de fora) quando chega a vez de se encaixarem; antes disso não aparecem na tela.
-- Para publicar, ainda é preciso cifrar: `CHAVE=suachave node tools/cifrar.mjs pessoais.txt palavra-final.txt` e subir só o `pessoais.enc.json`.
+## Sem cifra (31/10)
+- Decisão: tirar a cifra e a chave. O usuário avalia que a pessoa não vai abrir o código do site, e a chave de 43 caracteres atrapalhava o uso. O link enviado é o endereço limpo, sem `#`.
+- Dados em texto simples: `site/assets/pessoais.txt` (uma palavra por linha, com repetições para dar detalhe) e `site/assets/palavra-final.txt` (`voce`, desenhada sempre em maiúsculas). Para mudar, edite os arquivos e dê push.
+- Ver localmente: dentro de `site/`, `python3 -m http.server` e abrir `http://localhost:8000/?data=2026-11-20T12:00:00-03:00`.
+- Trade-off aceito: repositório e site públicos, então as palavras e o `VOCE` ficam legíveis para quem abrir o código ou o arquivo. O `?data=` continua e pode sair depois de 21/11; não deve constar nos links enviados a ela. O histórico do Git guarda versões antigas.
+- Removidos: `cripto.js`, `pessoais.enc.json`, `tools/cifrar.mjs`, `tools/preview.mjs` e os testes de cifra e vazamento (trocados por `tools/pessoais.test.mjs`).
