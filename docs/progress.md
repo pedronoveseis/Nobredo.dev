@@ -61,10 +61,10 @@
 **Técnicas (próximas rodadas)**
 1. Legibilidade da forma no celular (modo retrato): ajustar tamanho de fonte, espaçamento e quantidade de palavras com o conteúdo real.
 2. Painel de debug (`?debug`) com data fixa e slider.
-3. Rodar os testes no workflow antes de publicar.
+3. ~~Rodar os testes no workflow antes de publicar.~~ Feito: o workflow roda `node --test` antes do deploy.
 4. Afinar densidade e movimento do ruído quando não há chave.
 5. Decidir se `?data=` continua ativo em produção.
-6. Revisar `docs/arquitetura.md` (as seções 1 a 11 são histórico).
+6. ~~Revisar `docs/arquitetura.md`~~ Feito: aviso de histórico no topo apontando para este arquivo.
 
 ## 5. Como operar
 
