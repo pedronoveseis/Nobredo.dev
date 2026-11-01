@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { INICIO, ALVO, JUNTOS_DESDE, fracao, curva, ordem, embaralhar, encaixadas, partes } from "../site/assets/core.js";
+import { INICIO, ALVO, JUNTOS_DESDE, fracao, curva, ordem, embaralhar, encaixadas, partes, linhasBloco } from "../site/assets/core.js";
 import { RUIDO } from "../site/assets/ruido.js";
 import { readFileSync } from "node:fs";
 import { bloqueadasDoArquivo, filtrar, semAcento } from "./importar-ruido.mjs";
@@ -34,9 +34,25 @@ test("curva: extremos, monotônica e suave", () => {
 test("ritmo: toda a virada de dia encaixa palavras novas", () => {
   const DIA = 86400000;
   for (let t = INICIO; t < ALVO; t += DIA) {
-    const novas = encaixadas(278, curva(fracao(t + DIA))) - encaixadas(278, curva(fracao(t)));
+    const novas = encaixadas(500, curva(fracao(t + DIA))) - encaixadas(500, curva(fracao(t)));
     assert.ok(novas >= 5, `dia ${new Date(t).toISOString()}: só ${novas}`);
   }
+});
+
+test("bloco: mantém a ordem, cabe na largura e justifica as linhas cheias", () => {
+  const w = Array.from({ length: 40 }, (_, i) => 20 + (i % 5) * 7);
+  const L = 200, folga = 5;
+  const pos = linhasBloco(w, L, folga);
+  assert.equal(pos.length, w.length);
+  const linhas = new Map();
+  pos.forEach((p, i) => { if (!linhas.has(p.linha)) linhas.set(p.linha, []); linhas.get(p.linha).push(i); });
+  for (const [, idx] of linhas) {
+    for (const i of idx) assert.ok(pos[i].x >= -1e-6 && pos[i].x + w[i] <= L + 1e-6);
+    for (let k = 1; k < idx.length; k++) assert.ok(pos[idx[k]].x >= pos[idx[k - 1]].x + w[idx[k - 1]] + folga - 1e-6);
+  }
+  const cheias = [...linhas.values()].slice(0, -1);
+  for (const idx of cheias) { const u = idx[idx.length - 1]; assert.ok(Math.abs(pos[u].x + w[u] - L) < 1e-6); }
+  assert.deepEqual(linhasBloco([], 100, 5), []);
 });
 
 test("ruído: entre 900 e 1000 palavras de exatamente 4 letras, sem repetição", () => {

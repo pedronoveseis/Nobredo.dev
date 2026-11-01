@@ -1,10 +1,16 @@
-import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, embaralhar, encaixadas, partes, empacotar } from "./core.js";
+import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, embaralhar, encaixadas, partes, empacotar, linhasBloco } from "./core.js";
 import { RUIDO } from "./ruido.js";
 
 const SEED_PALAVRAS = 4;   // ordem das palavras ao longo da forma
 const SEED_ENCAIXE = 22;   // ordem em que as palavras se encaixam
 const ESCALA_FORMA = 0.65; // fração da área útil ocupada pelo desenho
 const FONTE_MAX = 28;
+const FATOR_FONTE = 0.7;  // a forma usa essa fração da maior fonte possível: mais slots, pontos menores
+const FONTE_MIN = 6.5;    // piso (px) para não ficar ilegível no celular
+const ONDA_MS = 6000;     // a transformação em VOCE varre a tela da esquerda para a direita nesse tempo
+const ESPERA_MS = 1500;   // numa primeira visita depois de ALVO, o bloco aparece e só então começa a onda
+const CHAVE = "nobredo-viu-transformacao";
+const VOO_MS = 2500;      // duração do deslocamento de cada palavra, do bloco ao lugar na forma
 const FADE_MS = 4000;      // sumiço do ruído em ALVO
 
 // ?data=2026-11-10T12:00:00-03:00 simula outra data (o tempo segue correndo a partir dela).
@@ -12,7 +18,17 @@ const simulada = Date.parse(new URLSearchParams(location.search).get("data") ?? 
 const deslocamento = Number.isNaN(simulada) ? 0 : simulada - Date.now();
 const agora = () => Date.now() + deslocamento;
 
+// Quando a transformação em VOCE começa. Antes de ALVO: em ALVO. Depois de ALVO: na primeira visita (logo
+// depois de abrir); nas seguintes (marca no localStorage), ou se ele estiver bloqueado, já está pronto.
+const lerMarca = () => { try { return localStorage.getItem(CHAVE) === "1"; } catch { return true; } };
+const gravarMarca = () => { try { localStorage.setItem(CHAVE, "1"); } catch { /* sem armazenamento: ok */ } };
+if (new URLSearchParams(location.search).has("reset")) { try { localStorage.removeItem(CHAVE); } catch { /* ok */ } }
+const PRONTA = -Infinity;
 const reduzido = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let inicioTransf = agora() < ALVO ? ALVO : reduzido || lerMarca() ? PRONTA : agora() + ESPERA_MS;
+let marcado = inicioTransf === PRONTA;
+const FIM_TRANSF = ONDA_MS + 700 + VOO_MS;
+
 const canvas = document.getElementById("stage");
 const ctx = canvas.getContext("2d");
 const css = getComputedStyle(document.documentElement);
@@ -24,6 +40,7 @@ let final = "";       // palavra final; vem de palavra-final.txt
 let ruido = [];       // { texto, base, fase, periodo }
 let forma = [];       // { texto, slot, base, fase, periodo, rank, p }
 let rank = [];
+let bloco = [];       // [{ x, y }]: posição de cada palavra no bloco, antes da transformação
 
 // ---------- conteúdo pessoal (texto simples em site/assets/*.txt) ----------
 // Se os arquivos faltarem ou falharem, não há forma: só ruído e relógio.
@@ -117,6 +134,22 @@ function preencher(m, f) {
   return slots;
 }
 
+// Bloco: as mesmas palavras, na mesma ordem das linhas da forma, em um retângulo quase quadrado.
+// Antes de ALVO elas ficam aqui; em ALVO cada uma segue para o seu slot.
+function montarBloco(slots) {
+  if (!slots.length) return [];
+  ctx.font = `${fonteForma}px ${cor("--font-body")}`;
+  const larguras = slots.map((s) => ctx.measureText(palavras[s.i]).width);
+  const folga = fonteForma * 0.4, passo = fonteForma * 1.15;
+  const util = H - RODAPE;
+  const area = larguras.reduce((a, w) => a + w + folga, 0) * passo;
+  const L = Math.min(W - 24, Math.max(Math.max(...larguras), Math.sqrt(area * 1.1)));
+  const pos = linhasBloco(larguras, L, folga);
+  const linhas = pos[pos.length - 1].linha + 1;
+  const x0 = (W - L) / 2, y0 = (util - (linhas - 1) * passo) / 2;
+  return pos.map((p) => ({ x: x0 + p.x, y: y0 + p.linha * passo }));
+}
+
 // Maior fonte que ainda usa todas as palavras ao menos uma vez.
 function montar() {
   const dpr = devicePixelRatio || 1;
@@ -136,7 +169,10 @@ function montar() {
       const s = preencher(m, mid);
       if (s.length >= palavras.length) { lo = mid; slots = s; } else hi = mid;
     }
-    fonteForma = lo;
+    // fonte menor que a máxima: cabem mais slots e as palavras se repetem mais
+    fonteForma = Math.max(Math.min(lo, FONTE_MIN), lo * FATOR_FONTE);
+    slots = preencher(m, fonteForma);
+    bloco = montarBloco(slots);
   }
   fonteRuido = Math.max(8, Math.min(11, W / 90 + 4));
 
@@ -147,6 +183,8 @@ function montar() {
   forma = slots.map((s, i) => ({
     texto: palavras[s.i],
     slot: { x: s.x, y: s.y },
+    bloco: bloco[i] ?? { x: s.x, y: s.y },
+    atraso: (s.x / W) * ONDA_MS + rnd(i + 33) * 700,
     base: { x: rnd(i + 1) * W, y: rnd(i + 77) * (H - RODAPE) },
     fase: rnd(i + 5) * 6.28,
     periodo: 1800 + rnd(i + 9) * 2200,
@@ -183,7 +221,7 @@ function quadro(t) {
   ctx.textBaseline = "middle";
 
   // Ruído: some em ALVO e não volta. Sem forma para revelar, ele fica.
-  const vivo = !temForma() ? 1 : reduzido ? (n < ALVO ? 1 : 0) : 1 - Math.min(1, Math.max(0, (n - ALVO) / FADE_MS));
+  const vivo = !temForma() ? 1 : reduzido ? (n < inicioTransf ? 1 : 0) : 1 - Math.min(1, Math.max(0, (n - inicioTransf) / FADE_MS));
   if (vivo > 0) {
     ctx.font = `${fonteRuido}px ${cor("--font-display")}`;
     ctx.fillStyle = cor("--color-ruido");
@@ -207,11 +245,15 @@ function quadro(t) {
 
     if (it.p <= 0 && alvo === 0) return; // ainda não é a vez dela: só surge ao encaixar
     const e = it.p * it.p * (3 - 2 * it.p);
-    // soltas: vagam pela tela toda; ao encaixar, vão para o lugar
+    // transformação em VOCE: cada palavra sai do bloco para o slot, em onda, a partir de ALVO
+    const mm = reduzido ? (n >= inicioTransf ? 1 : 0) : Math.min(1, Math.max(0, (n - inicioTransf - it.atraso) / VOO_MS));
+    const ms = mm * mm * (3 - 2 * mm);
+    const dx = it.bloco.x * (1 - ms) + it.slot.x * ms, dy = it.bloco.y * (1 - ms) + it.slot.y * ms;
+    // soltas: vagam pela tela toda; ao entrar, vão para o lugar no bloco
     const fx = it.base.x + Math.sin(k * 0.22 + it.fase) * W * 0.28 + Math.sin(k * 0.61 + it.fase * 2) * 30;
     const fy = it.base.y + Math.cos(k * 0.19 + it.fase * 1.3) * (H - RODAPE) * 0.28 + Math.cos(k * 0.53 + it.fase) * 24;
-    const x = Math.min(W - 10, Math.max(10, fx)) * (1 - e) + it.slot.x * e;
-    const y = Math.min(H - RODAPE, Math.max(10, fy)) * (1 - e) + it.slot.y * e;
+    const x = Math.min(W - 10, Math.max(10, fx)) * (1 - e) + dx * e;
+    const y = Math.min(H - RODAPE, Math.max(10, fy)) * (1 - e) + dy * e;
 
     let texto = it.texto;
     if (!reduzido && it.p < 1) {
@@ -225,6 +267,7 @@ function quadro(t) {
   });
   ctx.globalAlpha = 1;
 
+  if (!marcado && temForma() && n > inicioTransf + FIM_TRANSF) { gravarMarca(); marcado = true; }
   relogio(n);
   requestAnimationFrame(quadro);
 }

@@ -27,8 +27,8 @@ Um site estático e privado, feito para uma única pessoa. Centenas de palavras 
 ## Como a animação funciona
 1. **Máscara:** a palavra final é desenhada num canvas fora da tela, em maiúsculas, e vira uma máscara de pixels.
 2. **Slots:** cada linha da máscara é dividida em trechos, e `empacotar` os preenche com as palavras pessoais, em ciclo. Perto das pontas escolhe palavras mais curtas e depois justifica a sobra, para as bordas das letras ficarem retas. A fonte é a maior em que todas as palavras aparecem ao menos uma vez.
-3. **Tempo:** `fracao(agora)` vai de 0 a 1 entre 01/11 e 21/11. A curva `f^1,2` (`EXPOENTE` em `core.js`) dá cerca de 7 palavras novas no primeiro dia e 14 por dia na média, para sempre haver algo novo.
-4. **Encaixe:** cada slot tem uma posição na ordem de encaixe. Quando chega a vez, a palavra surge em fade, vinda de onde estava, e vai para o lugar. Antes disso, não aparece.
+3. **Tempo:** `fracao(agora)` vai de 0 a 1 entre 01/11 e 21/11. A curva `f^1,2` (`EXPOENTE` em `core.js`) dá algo novo todo dia.
+4. **Bloco e transformação:** antes de 21/11 00h as palavras da forma ficam num **bloco quase quadrado** (`linhasBloco` em `core.js`, `montarBloco` em `app.js`), sem pista do VOCE; cada uma surge em fade, vinda de onde estava, em ordem aleatória. Em 21/11 00h cada palavra sai do lugar no bloco e vai para o seu slot, **em onda da esquerda para a direita** (`ONDA_MS`, `VOO_MS`), como peças de lego. Quem abrir pela **primeira vez** depois da meia-noite vê o bloco e, 1,5 s depois, a onda (a marca `nobredo-viu-transformacao` no `localStorage` é gravada ao terminar); nas visitas seguintes, ou com o `localStorage` bloqueado, ou com movimento reduzido, o VOCE já está pronto. `?reset=1` apaga a marca para testar. A fonte da forma é 70% da maior possível (`FATOR_FONTE`), com piso de 6,5 px.
 5. **Ruído:** palavras de 4 letras em grade com jitter, por toda a tela; some com fade de 4 s em 21/11.
 6. **Relógio:** regressivo até 21/11 00h; depois progressivo, contado desde 22/10 00h.
 

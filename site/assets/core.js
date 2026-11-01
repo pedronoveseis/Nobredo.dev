@@ -9,8 +9,8 @@ export function fracao(agora, inicio = INICIO, alvo = ALVO) {
   return Math.min(1, Math.max(0, (agora - inicio) / (alvo - inicio)));
 }
 
-// Encaixe quase linear, um pouco mais calmo no começo: algo novo surge todo dia e a forma fecha no alvo.
-// Com ~278 palavras são ~7 no primeiro dia e ~14 por dia na média.
+// Encaixe quase linear, um pouco mais calmo no começo: algo novo entra todo dia. Antes de ALVO as palavras
+// ficam num bloco, sem pista da forma; por isso a curva não precisa esconder nada.
 const EXPOENTE = 1.2;
 export function curva(f) {
   return f ** EXPOENTE;
@@ -59,6 +59,36 @@ export function embaralhar(palavra, seed) {
 // Quantas palavras já devem estar encaixadas.
 export function encaixadas(total, f) {
   return Math.floor(f * total + 1e-9);
+}
+
+// Posições x de uma sequência de palavras (na ordem dada) em linhas de largura L, justificadas.
+// Mantém a ordem, para cada palavra do bloco corresponder a um slot da forma. Devolve [{ linha, x }].
+export function linhasBloco(larguras, L, folga) {
+  const out = [];
+  let linha = 0, ini = 0, usado = 0;
+  const fecha = (fim) => {
+    const n = fim - ini;
+    const extra = n > 1 ? (L - usado) / (n - 1) : 0;
+    let x = n > 1 ? 0 : (L - usado) / 2;
+    for (let k = ini; k < fim; k++) {
+      out.push({ linha, x });
+      x += larguras[k] + folga + extra;
+    }
+  };
+  for (let k = 0; k < larguras.length; k++) {
+    const w = larguras[k] + (k > ini ? folga : 0);
+    if (k > ini && usado + w > L) {
+      fecha(k);
+      linha++; ini = k; usado = larguras[k];
+    } else usado += w;
+  }
+  // última linha: sem justificar
+  let x = (L - usado) / 2;
+  for (let k = ini; k < larguras.length; k++) {
+    out.push({ linha, x });
+    x += larguras[k] + folga;
+  }
+  return out;
 }
 
 // Dias, horas, minutos, segundos a partir de milissegundos.

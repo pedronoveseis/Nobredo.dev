@@ -8,7 +8,7 @@
 | Item | Estado |
 |---|---|
 | Site estático em `site/` (HTML + CSS + JS puro, sem build) | No ar |
-| Forma VOCE com palavras pessoais, bordas retas (`empacotar`), curva `f^1,2` | Pronta |
+| Bloco de palavras que vira VOCE em 21/11 00h (onda, estilo lego); bordas retas (`empacotar`), curva `f^1,2`, fonte 70% | Implementado; a transformação toca na primeira visita depois de 21/11 00h (marca no `localStorage`). Aguarda commit (01/11) |
 | Janela da animação | 01/11/2026 00h até 21/11/2026 00h (-03:00) |
 | Relógio | "Falta(m)" até 21/11 00h; depois "Juntos há", 30 dias em 21/11 |
 | Ruído (palavras de 4 letras) | ~940 palavras importadas e filtradas; some em 21/11 00h |
@@ -22,7 +22,8 @@
 3. **Rodada 7:** GitHub Pages e a mecânica de palavras que se encaixam. O código antigo ficou em `_arquivo/` e foi removido em 31/10 (está no histórico).
 4. **Rodadas 8 e 9:** ruído de 4 letras, janela 01/11 a 21/11 e conteúdo pessoal **cifrado** com chave no `#` do link.
 5. **31/10:** a cifra saiu. Palavras em texto em `site/assets/`, link sem `#` (o autor avalia que ela não vai abrir o código). Saíram também `cripto.js`, `cifrar.mjs` e o preview.
-6. **31/10:** forma toda dourada, curva suave (`f^1,2`), palavras só surgem ao encaixar, bordas retas, Agilera no ruído.
+6. **01/11:** o VOCE se lia no dia 15 e 17 (curva lenta e manchas não bastaram). Troca por **bloco que vira VOCE** só em 21/11 00h; fonte da forma menor (70%).
+7. **31/10:** forma toda dourada, curva suave (`f^1,2`), palavras só surgem ao encaixar, bordas retas, Agilera no ruído.
 
 ## 3. Aprendizados
 - Em site estático com repositório público, tudo que está nos arquivos é legível. Aceito aqui como trade-off consciente; o histórico do Git guarda versões antigas.
