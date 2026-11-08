@@ -17,8 +17,9 @@ test("gerarNuvem: determinística e com largura 1 centrada", () => {
 });
 
 test("planejarNuvens: quantidade por tela, dentro da tela no início, mesma forma por índice", () => {
-  assert.equal(maxNuvens(390, 844), 7);
-  assert.equal(maxNuvens(1440, 900), 10);
+  assert.equal(maxNuvens(390, 844), 12);
+  assert.equal(maxNuvens(1440, 900), 16);
+  assert.equal(maxNuvens(360, 640), 8);
   for (const [W, H] of [[390, 844], [856, 1028], [1440, 900]]) {
     const l = planejarNuvens(W, H);
     assert.equal(l.length, maxNuvens(W, H));

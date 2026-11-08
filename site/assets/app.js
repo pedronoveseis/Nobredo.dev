@@ -1,4 +1,4 @@
-import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, semAnagramas, embaralhar, encaixadas, partes, empacotar, linhasBloco } from "./core.js";
+import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, proximaPalavra, semAnagramas, embaralhar, encaixadas, partes, empacotar, linhasBloco } from "./core.js";
 import { RUIDO as TODO_RUIDO } from "./ruido.js";
 const RUIDO = semAnagramas(TODO_RUIDO); // sem anagramas: nada repete nem colide ao embaralhar
 import { PALETAS, ESCALA_NUVEM, misturar, planejarNuvens, atribuir, posicao, desenharNuvem, desenharSombra } from "./nuvens.js";
@@ -47,6 +47,11 @@ const cctx = ceu.getContext("2d");
 const params = new URLSearchParams(location.search);
 const paletaDia = PALETAS[params.get("paleta")] ?? PALETAS.creme;
 const comSombra = params.get("sombra") !== "0"; // ?sombra=0 desliga
+// Semente do ruído: muda a cada visita (palavras diferentes nas nuvens). ?seed=N repete um resultado.
+const SEMENTE_RUIDO = params.has("seed") ? Number(params.get("seed")) | 0 : (Math.random() * 2 ** 31) | 0;
+const filaRuido = ordem(RUIDO.length, SEMENTE_RUIDO + 1).map((i) => RUIDO[i]); // palavras que as nuvens recebem ao reaparecer
+let ptrFila = 0;
+const novaPalavra = (emUso) => { const [p, q] = proximaPalavra(filaRuido, ptrFila, emUso); ptrFila = q; return p; };
 const css = getComputedStyle(document.documentElement);
 const cor = (n) => css.getPropertyValue(n).trim();
 
@@ -232,8 +237,8 @@ function montar() {
   const cols = Math.max(1, Math.floor(W / cw)), rows = Math.max(1, Math.floor(H / ch));
   const celulas = Math.min(RUIDO.length, cols * rows);
   cw = W / cols; ch = H / rows;
-  const palavrasRuido = ordem(RUIDO.length, 9);
-  ruido = ordem(cols * rows, 9).slice(0, celulas).map((c, i) => ({
+  const palavrasRuido = ordem(RUIDO.length, SEMENTE_RUIDO);
+  ruido = ordem(cols * rows, SEMENTE_RUIDO + 2).slice(0, celulas).map((c, i) => ({
     texto: RUIDO[palavrasRuido[i]],
     base: { x: (c % cols + 0.5 + (rnd(i + 301) - 0.5) * 0.5) * cw, y: (Math.floor(c / cols) + 0.5 + (rnd(i + 677) - 0.5) * 0.5) * ch },
     ax: cw * 0.3, ay: ch * 0.3,
@@ -261,8 +266,10 @@ function montar() {
       const d = Math.hypot(r.base.x - nv.cx0, r.base.y - nv.cy);
       if (d < dm) { dm = d; melhor = r; }
     }
-    nv.palavra = melhor?.texto ?? RUIDO[palavrasRuido[c % palavrasRuido.length]];
+    nv.palavra = antes[c]?.palavra ?? melhor?.texto ?? null; // ao redimensionar, a nuvem mantém a palavra
   });
+  const emUso = new Set(nuvens.map((nv) => nv.palavra).filter(Boolean));
+  nuvens.forEach((nv) => { if (!nv.palavra) { nv.palavra = novaPalavra(emUso); emUso.add(nv.palavra); } });
 }
 
 // ---------- quadro ----------
@@ -359,8 +366,14 @@ function desenharCeu(t, ti, dt) {
     nv.v = reduzido ? nv.alvoV : nv.v + Math.sign(nv.alvoV - nv.v) * Math.min(Math.abs(nv.alvoV - nv.v), dt / 1.5);
     const uIntro = intro ? Math.min(1, Math.max(0, (ti - INTRO_PUFF_MS - c * 120) / INTRO_PUFF_DUR)) : 1;
     const u = uIntro * nv.v;
+    const pos = posicao(nv, derivaT, reduzido ? 0 : t / 1000, bob);
+    // deu a volta (saiu pela direita, voltou pela esquerda, fora da tela): ganha uma palavra nova
+    if (nv.cxAnt !== undefined && pos.cx < nv.cxAnt - nv.span / 2) {
+      nv.palavra = novaPalavra(new Set(nuvens.map((o) => o.palavra)));
+    }
+    nv.cxAnt = pos.cx;
     if (u <= 0) return;
-    vivas.push({ nv, c, u, ...posicao(nv, derivaT, reduzido ? 0 : t / 1000, bob) });
+    vivas.push({ nv, c, u, ...pos });
   });
   if (comSombra) for (const { nv, cx, cy, u } of vivas) desenharSombra(cctx, nv, cx, cy, paleta, 0.9 * Math.min(1, u * 2));
   for (const { nv, c, u, cx, cy } of vivas) {

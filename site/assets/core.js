@@ -50,6 +50,18 @@ export function semAnagramas(lista) {
   });
 }
 
+// Próxima palavra da fila (a partir de `ponteiro`, dando a volta) que não esteja em `emUso` (Set).
+// Devolve [palavra, novoPonteiro]. Se todas estiverem em uso, devolve a do ponteiro.
+export function proximaPalavra(fila, ponteiro, emUso) {
+  const n = fila.length;
+  if (!n) return [null, 0];
+  for (let k = 0; k < n; k++) {
+    const i = (ponteiro + k) % n;
+    if (!emUso.has(fila[i])) return [fila[i], (i + 1) % n];
+  }
+  return [fila[ponteiro % n], (ponteiro + 1) % n];
+}
+
 // Troca a ordem das letras; garante resultado diferente quando possível.
 export function embaralhar(palavra, seed) {
   const letras = [...palavra];

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { INICIO, ALVO, JUNTOS_DESDE, fracao, curva, ordem, semAnagramas, embaralhar, encaixadas, partes, linhasBloco } from "../site/assets/core.js";
+import { INICIO, ALVO, JUNTOS_DESDE, fracao, curva, ordem, proximaPalavra, semAnagramas, embaralhar, encaixadas, partes, linhasBloco } from "../site/assets/core.js";
 import { RUIDO } from "../site/assets/ruido.js";
 import { readFileSync } from "node:fs";
 import { bloqueadasDoArquivo, filtrar, semAcento } from "./importar-ruido.mjs";
@@ -127,4 +127,15 @@ test("semAnagramas: o ruído usado não tem anagramas, e embaralhar nunca colide
   assert.ok(u.length > 600, `sobraram ${u.length}`);
   const finais = new Map();
   u.forEach((p, i) => { const e = embaralhar(p, i); assert.ok(!finais.has(e), `${p} e ${finais.get(e)} embaralham igual`); finais.set(e, p); });
+});
+
+test("proximaPalavra: pula as em uso, dá a volta e é determinística", () => {
+  const fila = ["a", "b", "c", "d"];
+  assert.deepEqual(proximaPalavra(fila, 0, new Set()), ["a", 1]);
+  assert.deepEqual(proximaPalavra(fila, 0, new Set(["a", "b"])), ["c", 3]);
+  assert.deepEqual(proximaPalavra(fila, 3, new Set(["d", "a"])), ["b", 2]);
+  assert.deepEqual(proximaPalavra(fila, 1, new Set(fila)), ["b", 2]); // tudo em uso: devolve a do ponteiro
+  assert.deepEqual(proximaPalavra([], 0, new Set()), [null, 0]);
+  const emUso = new Set();
+  for (let k = 0; k < 4; k++) { const p = proximaPalavra(fila, 0, emUso)[0]; assert.ok(!emUso.has(p)); emUso.add(p); }
 });

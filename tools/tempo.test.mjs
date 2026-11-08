@@ -23,13 +23,14 @@ test("normalizarTempo: sem is_day usa o horário de São Paulo", () => {
   assert.equal(normalizarTempo({ current: { cloud_cover: 10, wind_speed_10m: 1 } }, madrugada).dia, false);
 });
 
-test("nuvensParaCobertura: céu limpo = 3, encoberto = máximo, monotônica", () => {
+test("nuvensParaCobertura: céu limpo = mínimo (5), encoberto = máximo, monotônica", () => {
   assert.equal(nuvensParaCobertura(0, 10), MIN_NUVENS);
   assert.equal(nuvensParaCobertura(1, 10), 10);
-  assert.equal(nuvensParaCobertura(1, 5), 5);
-  assert.equal(nuvensParaCobertura(-3, 10), 3);
+  assert.equal(nuvensParaCobertura(1, 8), 8);
+  assert.equal(MIN_NUVENS, 5);
+  assert.equal(nuvensParaCobertura(-3, 10), MIN_NUVENS);
   assert.equal(nuvensParaCobertura(9, 10), 10);
-  assert.equal(nuvensParaCobertura(0.5, 2), 3); // tela pequena demais: nunca abaixo do mínimo
+  assert.equal(nuvensParaCobertura(0.5, 2), MIN_NUVENS); // tela pequena demais: nunca abaixo do mínimo
   let ant = 0;
   for (let c = 0; c <= 1; c += 0.05) { const n = nuvensParaCobertura(c, 10); assert.ok(n >= ant); ant = n; }
 });

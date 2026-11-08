@@ -62,7 +62,7 @@ export function gerarNuvem(seed) {
 
 // Quantas nuvens cabem na tela (o conjunto completo; o tempo liga só as primeiras).
 export function maxNuvens(W, H) {
-  return clamp(Math.round((W * H) / 45000), 5, 10);
+  return clamp(Math.round((W * H) / 28000), 8, 16);
 }
 
 // Faixa vertical de cada nuvem: ranking de frac((i + 0.5) * phi). Qualquer prefixo (3, 4, 5... nuvens) fica

@@ -6,7 +6,7 @@ export const RIO = { lat: -22.9068, lon: -43.1729 };
 export const URL_TEMPO = `https://api.open-meteo.com/v1/forecast?latitude=${RIO.lat}&longitude=${RIO.lon}&current=cloud_cover,wind_speed_10m,is_day&timezone=America%2FSao_Paulo`;
 export const TTL_MS = 30 * 60 * 1000;
 export const ATUALIZAR_MS = 15 * 60 * 1000;
-export const MIN_NUVENS = 3;
+export const MIN_NUVENS = 5;
 const CHAVE = "nobredo-tempo";
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
