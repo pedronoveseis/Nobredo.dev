@@ -1,5 +1,6 @@
 import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, embaralhar, encaixadas, partes, empacotar, linhasBloco } from "./core.js";
 import { RUIDO } from "./ruido.js";
+import { PALETAS, planejarNuvens, atribuir, posicao, desenharNuvem, desenharSombra } from "./nuvens.js";
 
 const SEED_PALAVRAS = 4;   // ordem das palavras ao longo da forma
 const SEED_ENCAIXE = 22;   // ordem em que as palavras se encaixam
@@ -11,7 +12,10 @@ const ONDA_MS = 6000;     // a transformação em VOCE varre a tela da esquerda 
 const ESPERA_MS = 1500;   // numa primeira visita depois de ALVO, o bloco aparece e só então começa a onda
 const CHAVE = "nobredo-viu-transformacao";
 const VOO_MS = 2500;      // duração do deslocamento de cada palavra, do bloco ao lugar na forma
-const FADE_MS = 4000;      // sumiço do ruído em ALVO
+const CHAVE_NUVENS = "nobredo-viu-nuvens";
+// Intro das nuvens (primeira visita), em ms: o ruído voa até as nuvens, elas estufam, a deriva começa.
+const VOO_RUIDO_MS = 1800, INTRO_PUFF_MS = 2500, INTRO_PUFF_DUR = 1500, INTRO_PALAVRA_MS = 3600, INTRO_DERIVA_MS = 5000, INTRO_MS = 6500;
+// FIM_NUVENS: as nuvens saem antes de 21/11; o momento e o jeito serão definidos depois.
 
 // ?data=2026-11-10T12:00:00-03:00 simula outra data (o tempo segue correndo a partir dela).
 const simulada = Date.parse(new URLSearchParams(location.search).get("data") ?? "");
@@ -22,15 +26,24 @@ const agora = () => Date.now() + deslocamento;
 // depois de abrir); nas seguintes (marca no localStorage), ou se ele estiver bloqueado, já está pronto.
 const lerMarca = () => { try { return localStorage.getItem(CHAVE) === "1"; } catch { return true; } };
 const gravarMarca = () => { try { localStorage.setItem(CHAVE, "1"); } catch { /* sem armazenamento: ok */ } };
-if (new URLSearchParams(location.search).has("reset")) { try { localStorage.removeItem(CHAVE); } catch { /* ok */ } }
+const lerMarcaNuvens = () => { try { return localStorage.getItem(CHAVE_NUVENS) === "1"; } catch { return true; } };
+const gravarMarcaNuvens = () => { try { localStorage.setItem(CHAVE_NUVENS, "1"); } catch { /* ok */ } };
+if (new URLSearchParams(location.search).has("reset")) { try { localStorage.removeItem(CHAVE); localStorage.removeItem(CHAVE_NUVENS); } catch { /* ok */ } }
 const PRONTA = -Infinity;
 const reduzido = matchMedia("(prefers-reduced-motion: reduce)").matches;
-let inicioTransf = agora() < ALVO ? ALVO : reduzido || lerMarca() ? PRONTA : agora() + ESPERA_MS;
+const introNuvens = !reduzido && !lerMarcaNuvens(); // primeira visita: o ruído voa e forma as nuvens
+let marcadoNuvens = !introNuvens;
+let inicioTransf = agora() < ALVO ? ALVO : reduzido || lerMarca() ? PRONTA : agora() + ESPERA_MS + (introNuvens ? INTRO_MS : 0);
 let marcado = inicioTransf === PRONTA;
 const FIM_TRANSF = ONDA_MS + 700 + VOO_MS;
 
 const canvas = document.getElementById("stage");
 const ctx = canvas.getContext("2d");
+const ceu = document.getElementById("ceu"); // camada das nuvens, por cima do relógio
+const cctx = ceu.getContext("2d");
+const params = new URLSearchParams(location.search);
+const paleta = PALETAS[params.get("paleta")] ?? PALETAS.creme;
+const comSombra = params.get("sombra") !== "0"; // ?sombra=0 desliga
 const css = getComputedStyle(document.documentElement);
 const cor = (n) => css.getPropertyValue(n).trim();
 
@@ -41,6 +54,8 @@ let ruido = [];       // { texto, base, fase, periodo }
 let forma = [];       // { texto, slot, base, fase, periodo, rank, p }
 let rank = [];
 let bloco = [];       // [{ x, y }]: posição de cada palavra no bloco, antes da transformação
+let nuvens = [];      // layout das nuvens (nuvens.js), com a palavra do centro em .palavra
+let t0 = null;        // instante do primeiro quadro (para o intro das nuvens)
 
 // ---------- conteúdo pessoal (texto simples em site/assets/*.txt) ----------
 // Se os arquivos faltarem ou falharem, não há forma: só ruído e relógio.
@@ -158,6 +173,8 @@ function montar() {
   canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ceu.width = canvas.width; ceu.height = canvas.height;
+  cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   let slots = [];
   if (temForma()) {
@@ -205,6 +222,24 @@ function montar() {
     fase: rnd(i + 15) * 6.28,
     periodo: 3000 + rnd(i + 19) * 4000,
   }));
+  // Cada palavra de ruído vai para uma nuvem; a mais próxima do centro vira a palavra dela.
+  nuvens = planejarNuvens(W, H);
+  const destino = atribuir(ruido.map((r) => r.base), nuvens);
+  ruido.forEach((r, i) => {
+    const nv = nuvens[destino[i]];
+    r.nuvem = destino[i];
+    r.alvo = { x: nv.cx0 + (rnd(i + 901) - 0.5) * nv.w * 0.6, y: nv.cy + (rnd(i + 433) - 0.5) * nv.h * 0.4 };
+    r.atraso = 800 + rnd(i + 57) * 1000 + (Math.hypot(r.base.x - nv.cx0, r.base.y - nv.cy) / Math.max(W, H)) * 500;
+  });
+  nuvens.forEach((nv, c) => {
+    let melhor = null, dm = Infinity;
+    for (const r of ruido) {
+      if (r.nuvem !== c) continue;
+      const d = Math.hypot(r.base.x - nv.cx0, r.base.y - nv.cy);
+      if (d < dm) { dm = d; melhor = r; }
+    }
+    nv.palavra = melhor?.texto ?? RUIDO[c];
+  });
 }
 
 // ---------- quadro ----------
@@ -220,18 +255,23 @@ function quadro(t) {
   ctx.clearRect(0, 0, W, H);
   ctx.textBaseline = "middle";
 
-  // Ruído: some em ALVO e não volta. Sem forma para revelar, ele fica.
-  const vivo = !temForma() ? 1 : reduzido ? (n < inicioTransf ? 1 : 0) : 1 - Math.min(1, Math.max(0, (n - inicioTransf) / FADE_MS));
-  if (vivo > 0) {
-    ctx.font = `${fonteRuido}px ${cor("--font-display")}`;
-    ctx.fillStyle = cor("--color-ruido");
-    ctx.globalAlpha = 0.55 * vivo;
+  // Ruído: só existe no intro da primeira visita; voa até a sua nuvem e some ao chegar.
+  if (t0 === null) t0 = t;
+  const ti = introNuvens ? t - t0 : Infinity; // ms desde o início do intro
+  if (ti < INTRO_PUFF_MS + INTRO_PUFF_DUR + 1500) {
     ctx.textAlign = "center";
+    ctx.fillStyle = cor("--color-ruido");
     for (const r of ruido) {
       const x = r.base.x + Math.sin(k * 0.45 + r.fase) * r.ax;
       const y = r.base.y + Math.cos(k * 0.37 + r.fase * 1.3) * r.ay;
-      ctx.globalAlpha = (y > H - RODAPE ? 0.3 : 0.55) * vivo; // mais discreto atrás do relógio
-      ctx.fillText(r.texto, x, y);
+      const p = Math.min(1, Math.max(0, (ti - r.atraso) / VOO_RUIDO_MS));
+      if (p >= 1) continue;
+      const e = p * p * (3 - 2 * p);
+      const fade = 1 - Math.min(1, Math.max(0, (p - 0.75) / 0.25));
+      ctx.font = `${fonteRuido * (1 - 0.35 * e)}px ${cor("--font-display")}`;
+      ctx.globalAlpha = (y > H - RODAPE ? 0.3 : 0.55) * fade;
+      const texto = p > 0 ? embaralhar(r.texto, Math.floor(t / 90) * 977 + ((r.fase * 1000) | 0)) : r.texto;
+      ctx.fillText(texto, x * (1 - e) + r.alvo.x * e, y * (1 - e) + r.alvo.y * e);
     }
     ctx.textAlign = "left";
   }
@@ -267,9 +307,43 @@ function quadro(t) {
   });
   ctx.globalAlpha = 1;
 
+  desenharCeu(t, ti);
+  if (!marcadoNuvens && ti > INTRO_MS) { gravarMarcaNuvens(); marcadoNuvens = true; }
   if (!marcado && temForma() && n > inicioTransf + FIM_TRANSF) { gravarMarca(); marcado = true; }
   relogio(n);
   requestAnimationFrame(quadro);
+}
+
+// ---------- nuvens (camada #ceu, por cima de tudo, inclusive do relógio) ----------
+const suave = (v) => { const p = Math.min(1, Math.max(0, v)); return p * p * (3 - 2 * p); };
+// Tempo de deriva (s): parada até a nuvem estufar e depois acelera suavemente até a velocidade normal.
+function derivaIntro(ms) {
+  const tau = Math.max(0, ms) / 1000;
+  return tau < 1 ? tau ** 3 - tau ** 4 / 2 : tau - 0.5;
+}
+function desenharCeu(t, ti) {
+  cctx.clearRect(0, 0, W, H);
+  const intro = ti !== Infinity;
+  const deriva = reduzido ? 0 : intro ? derivaIntro(ti - INTRO_DERIVA_MS) : t / 1000;
+  const bob = reduzido ? 0 : intro ? suave((ti - 4500) / 1500) : 1;
+  cctx.textAlign = "center";
+  cctx.textBaseline = "middle";
+  nuvens.forEach((nv, c) => {
+    const u = intro ? Math.min(1, Math.max(0, (ti - INTRO_PUFF_MS - c * 120) / INTRO_PUFF_DUR)) : 1;
+    if (u <= 0) return;
+    const { cx, cy } = posicao(nv, deriva, reduzido ? 0 : t / 1000, bob);
+    if (comSombra) desenharSombra(cctx, nv, cx, cy, paleta, 0.9 * Math.min(1, u * 2));
+    desenharNuvem(cctx, nv, cx, cy, u, paleta, 0.95);
+    const a = intro ? suave((ti - INTRO_PALAVRA_MS - c * 60) / 900) : 1;
+    if (a <= 0) return;
+    const tam = Math.min(19, Math.max(11, nv.w * 0.13));
+    cctx.font = `${tam}px ${cor("--font-display")}`;
+    cctx.fillStyle = paleta.texto;
+    cctx.globalAlpha = 0.9 * a;
+    const texto = intro && ti < INTRO_PALAVRA_MS + 1200 && a < 1 ? embaralhar(nv.palavra, Math.floor(t / 90) * 977 + c) : nv.palavra;
+    cctx.fillText(texto, Math.round(cx), Math.round(cy));
+  });
+  cctx.globalAlpha = 1;
 }
 
 // ---------- relógio ----------

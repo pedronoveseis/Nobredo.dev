@@ -16,6 +16,7 @@ Um site estático e privado, feito para uma única pessoa. Centenas de palavras 
 | `site/index.html` | Página (canvas + relógio), `noindex` |
 | `site/assets/app.js` | Canvas: ruído, forma, relógio, `?data=` |
 | `site/assets/core.js` | Lógica pura e testada: datas, curva, ordem, embaralhar, `empacotar` |
+| `site/assets/nuvens.js` | Lógica pura e testada das nuvens: forma (círculos), layout, deriva, desenho |
 | `site/assets/ruido.js` | Banco de palavras de 4 letras (o ruído) |
 | `site/assets/pessoais.txt` | Palavras pessoais, uma por linha, com repetições |
 | `site/assets/palavra-final.txt` | A palavra final (`voce`); sempre desenhada em maiúsculas |
@@ -29,7 +30,7 @@ Um site estático e privado, feito para uma única pessoa. Centenas de palavras 
 2. **Slots:** cada linha da máscara é dividida em trechos, e `empacotar` os preenche com as palavras pessoais, em ciclo. Perto das pontas escolhe palavras mais curtas e depois justifica a sobra, para as bordas das letras ficarem retas. A fonte é a maior em que todas as palavras aparecem ao menos uma vez.
 3. **Tempo:** `fracao(agora)` vai de 0 a 1 entre 01/11 e 21/11. A curva `f^1,2` (`EXPOENTE` em `core.js`) dá algo novo todo dia.
 4. **Bloco e transformação:** antes de 21/11 00h as palavras da forma ficam num **bloco quase quadrado** (`linhasBloco` em `core.js`, `montarBloco` em `app.js`), sem pista do VOCE; cada uma surge em fade, vinda de onde estava, em ordem aleatória. Em 21/11 00h cada palavra sai do lugar no bloco e vai para o seu slot, **em onda da esquerda para a direita** (`ONDA_MS`, `VOO_MS`), como peças de lego. Quem abrir pela **primeira vez** depois da meia-noite vê o bloco e, 1,5 s depois, a onda (a marca `nobredo-viu-transformacao` no `localStorage` é gravada ao terminar); nas visitas seguintes, ou com o `localStorage` bloqueado, ou com movimento reduzido, o VOCE já está pronto. `?reset=1` apaga a marca para testar. A fonte da forma é 70% da maior possível (`FATOR_FONTE`), com piso de 6,5 px.
-5. **Ruído:** palavras de 4 letras em grade com jitter, por toda a tela; some com fade de 4 s em 21/11.
+5. **Ruído e nuvens:** o ruído (palavras de 4 letras em grade) só aparece no intro da primeira visita: as palavras voam até as nuvens e somem ao chegar. Cada nuvem é um aglomerado de círculos em tons de creme (referência: CodePen "Rainy cloud"), com uma palavra de ruído no centro e uma sombra embaixo (`?sombra=0` desliga; `?paleta=azul` só compara). Ficam num segundo canvas (`#ceu`), por cima do relógio e das palavras pessoais, à deriva da esquerda para a direita e flutuando. Intro (~6 s) só na primeira visita (`nobredo-viu-nuvens`; `?reset=1` apaga). Movimento reduzido: nuvens paradas. As nuvens saem antes de 21/11; o momento será definido (`FIM_NUVENS` em `app.js`).
 6. **Relógio:** regressivo até 21/11 00h; depois progressivo, contado desde 22/10 00h.
 
 ## Decisões
