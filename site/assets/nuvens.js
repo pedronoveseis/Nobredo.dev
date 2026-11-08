@@ -3,7 +3,7 @@
 import { mulberry32 } from "./core.js";
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-export const ESCALA_NUVEM = 0.75; // tamanho das nuvens (e da palavra do centro) em relação ao tamanho-base
+export const ESCALA_NUVEM = 0.5625; // tamanho das nuvens (e da palavra do centro) em relação ao tamanho-base
 
 // Tons do mais claro (na frente) ao mais escuro (atrás). `texto` é a cor da palavra no centro.
 export const PALETAS = {

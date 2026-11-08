@@ -38,6 +38,18 @@ export function ordem(n, seed) {
   return a;
 }
 
+// Palavras sem anagramas entre si (ignora acento e caixa): ficam a primeira de cada conjunto de letras. Assim
+// duas palavras de ruído nunca embaralham para o mesmo texto (nem uma vira outra) enquanto voam.
+export function semAnagramas(lista) {
+  const visto = new Set();
+  return lista.filter((p) => {
+    const chave = [...p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()].sort().join("");
+    if (visto.has(chave)) return false;
+    visto.add(chave);
+    return true;
+  });
+}
+
 // Troca a ordem das letras; garante resultado diferente quando possível.
 export function embaralhar(palavra, seed) {
   const letras = [...palavra];

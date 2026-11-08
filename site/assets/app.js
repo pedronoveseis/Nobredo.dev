@@ -1,5 +1,6 @@
-import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, embaralhar, encaixadas, partes, empacotar, linhasBloco } from "./core.js";
-import { RUIDO } from "./ruido.js";
+import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, semAnagramas, embaralhar, encaixadas, partes, empacotar, linhasBloco } from "./core.js";
+import { RUIDO as TODO_RUIDO } from "./ruido.js";
+const RUIDO = semAnagramas(TODO_RUIDO); // sem anagramas: nada repete nem colide ao embaralhar
 import { PALETAS, ESCALA_NUVEM, misturar, planejarNuvens, atribuir, posicao, desenharNuvem, desenharSombra } from "./nuvens.js";
 import { ATUALIZAR_MS, neutro, nuvensParaCobertura, fatorVento, lerSimulado, carregarTempo, buscarTempo } from "./tempo.js";
 
@@ -16,6 +17,7 @@ const VOO_MS = 2500;      // duração do deslocamento de cada palavra, do bloco
 const CHAVE_NUVENS = "nobredo-viu-nuvens";
 // Intro das nuvens (primeira visita), em ms: o ruído voa até as nuvens, elas estufam, a deriva começa.
 const VOO_RUIDO_MS = 1800, INTRO_PUFF_MS = 2500, INTRO_PUFF_DUR = 1500, INTRO_PALAVRA_MS = 3600, INTRO_DERIVA_MS = 5000, INTRO_MS = 6500;
+const LENTO = 1.5; // o intro das nuvens dura 50% mais: o relógio do intro corre a 1/LENTO (as constantes acima são em tempo "normal")
 // FIM_NUVENS: as nuvens saem antes de 21/11; o momento e o jeito serão definidos depois.
 
 // ?data=2026-11-10T12:00:00-03:00 simula outra data (o tempo segue correndo a partir dela).
@@ -34,7 +36,7 @@ const PRONTA = -Infinity;
 const reduzido = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const introNuvens = !reduzido && !lerMarcaNuvens(); // primeira visita: o ruído voa e forma as nuvens
 let marcadoNuvens = !introNuvens;
-let inicioTransf = agora() < ALVO ? ALVO : reduzido || lerMarca() ? PRONTA : agora() + ESPERA_MS + (introNuvens ? INTRO_MS : 0);
+let inicioTransf = agora() < ALVO ? ALVO : reduzido || lerMarca() ? PRONTA : agora() + ESPERA_MS + (introNuvens ? INTRO_MS * LENTO : 0);
 let marcado = inicioTransf === PRONTA;
 const FIM_TRANSF = ONDA_MS + 700 + VOO_MS;
 
@@ -278,7 +280,7 @@ function quadro(t) {
 
   // Ruído: só existe no intro da primeira visita; voa até a sua nuvem e some ao chegar.
   if (t0 === null) t0 = t;
-  const ti = introNuvens ? t - t0 : Infinity; // ms desde o início do intro
+  const ti = introNuvens ? (t - t0) / LENTO : Infinity; // ms (em tempo normal) desde o início do intro
   if (ti < INTRO_PUFF_MS + INTRO_PUFF_DUR + 1500) {
     ctx.textAlign = "center";
     ctx.fillStyle = cor("--color-ruido");
@@ -349,24 +351,29 @@ function desenharCeu(t, ti, dt) {
   const bob = reduzido ? 0 : intro ? suave((ti - 4500) / 1500) : 1;
   cctx.textAlign = "center";
   cctx.textBaseline = "middle";
+  // Calcula estado e posição de todas as nuvens; as sombras são desenhadas primeiro, para ficarem por baixo
+  // de qualquer nuvem (a sombra de uma nuvem nunca cai por cima de outra).
+  const vivas = [];
   nuvens.forEach((nv, c) => {
     // nuvens entram estufando e saem murchando quando a cobertura muda (direto, com movimento reduzido)
     nv.v = reduzido ? nv.alvoV : nv.v + Math.sign(nv.alvoV - nv.v) * Math.min(Math.abs(nv.alvoV - nv.v), dt / 1.5);
     const uIntro = intro ? Math.min(1, Math.max(0, (ti - INTRO_PUFF_MS - c * 120) / INTRO_PUFF_DUR)) : 1;
     const u = uIntro * nv.v;
     if (u <= 0) return;
-    const { cx, cy } = posicao(nv, derivaT, reduzido ? 0 : t / 1000, bob);
-    if (comSombra) desenharSombra(cctx, nv, cx, cy, paleta, 0.9 * Math.min(1, u * 2));
+    vivas.push({ nv, c, u, ...posicao(nv, derivaT, reduzido ? 0 : t / 1000, bob) });
+  });
+  if (comSombra) for (const { nv, cx, cy, u } of vivas) desenharSombra(cctx, nv, cx, cy, paleta, 0.9 * Math.min(1, u * 2));
+  for (const { nv, c, u, cx, cy } of vivas) {
     desenharNuvem(cctx, nv, cx, cy, u, paleta, 0.95);
     const a = (intro ? suave((ti - INTRO_PALAVRA_MS - c * 60) / 900) : 1) * Math.min(1, nv.v * 2);
-    if (a <= 0) return;
-    const tam = Math.min(19 * ESCALA_NUVEM, Math.max(11 * ESCALA_NUVEM, nv.w * 0.13)); // acompanha o tamanho da nuvem
+    if (a <= 0) continue;
+    const tam = Math.min(19 * ESCALA_NUVEM, Math.max(8, 11 * ESCALA_NUVEM, nv.w * 0.13)); // acompanha o tamanho da nuvem (piso de 8 px)
     cctx.font = `${tam}px ${cor("--font-display")}`;
     cctx.fillStyle = paleta.texto;
     cctx.globalAlpha = 0.9 * a;
     const texto = intro && ti < INTRO_PALAVRA_MS + 1200 && a < 1 ? embaralhar(nv.palavra, Math.floor(t / 90) * 977 + c) : nv.palavra;
     cctx.fillText(texto, Math.round(cx), Math.round(cy));
-  });
+  }
   cctx.globalAlpha = 1;
 }
 

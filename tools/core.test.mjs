@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { INICIO, ALVO, JUNTOS_DESDE, fracao, curva, ordem, embaralhar, encaixadas, partes, linhasBloco } from "../site/assets/core.js";
+import { INICIO, ALVO, JUNTOS_DESDE, fracao, curva, ordem, semAnagramas, embaralhar, encaixadas, partes, linhasBloco } from "../site/assets/core.js";
 import { RUIDO } from "../site/assets/ruido.js";
 import { readFileSync } from "node:fs";
 import { bloqueadasDoArquivo, filtrar, semAcento } from "./importar-ruido.mjs";
@@ -119,4 +119,12 @@ test("empacotar: respeita o trecho, cola as pontas e usa todas as palavras", asy
     }
   }
   assert.equal(usadas.size, larguras.length);
+});
+
+test("semAnagramas: o ruído usado não tem anagramas, e embaralhar nunca colide entre palavras", () => {
+  assert.deepEqual(semAnagramas(["toro", "roto", "Ágil", "gail", "mar"]), ["toro", "Ágil", "mar"]);
+  const u = semAnagramas(RUIDO);
+  assert.ok(u.length > 600, `sobraram ${u.length}`);
+  const finais = new Map();
+  u.forEach((p, i) => { const e = embaralhar(p, i); assert.ok(!finais.has(e), `${p} e ${finais.get(e)} embaralham igual`); finais.set(e, p); });
 });
