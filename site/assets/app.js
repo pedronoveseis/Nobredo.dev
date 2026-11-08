@@ -1,6 +1,7 @@
 import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, embaralhar, encaixadas, partes, empacotar, linhasBloco } from "./core.js";
 import { RUIDO } from "./ruido.js";
-import { PALETAS, planejarNuvens, atribuir, posicao, desenharNuvem, desenharSombra } from "./nuvens.js";
+import { PALETAS, ESCALA_NUVEM, misturar, planejarNuvens, atribuir, posicao, desenharNuvem, desenharSombra } from "./nuvens.js";
+import { ATUALIZAR_MS, neutro, nuvensParaCobertura, fatorVento, lerSimulado, carregarTempo, buscarTempo } from "./tempo.js";
 
 const SEED_PALAVRAS = 4;   // ordem das palavras ao longo da forma
 const SEED_ENCAIXE = 22;   // ordem em que as palavras se encaixam
@@ -42,7 +43,7 @@ const ctx = canvas.getContext("2d");
 const ceu = document.getElementById("ceu"); // camada das nuvens, por cima do relógio
 const cctx = ceu.getContext("2d");
 const params = new URLSearchParams(location.search);
-const paleta = PALETAS[params.get("paleta")] ?? PALETAS.creme;
+const paletaDia = PALETAS[params.get("paleta")] ?? PALETAS.creme;
 const comSombra = params.get("sombra") !== "0"; // ?sombra=0 desliga
 const css = getComputedStyle(document.documentElement);
 const cor = (n) => css.getPropertyValue(n).trim();
@@ -56,6 +57,21 @@ let rank = [];
 let bloco = [];       // [{ x, y }]: posição de cada palavra no bloco, antes da transformação
 let nuvens = [];      // layout das nuvens (nuvens.js), com a palavra do centro em .palavra
 let t0 = null;        // instante do primeiro quadro (para o intro das nuvens)
+
+// ---------- tempo no Rio (tempo.js): cobertura → quantas nuvens, vento → velocidade, dia/noite → cor ----------
+let tempo = lerSimulado(location.search) ?? neutro(agora());
+let tempoAplicado = false;
+let fatorAtual = 1, fatorAlvo = 1, derivaT = 0, noite = 0; // suavizados nos quadros
+function aplicarTempo(d) {
+  if (!d) return;
+  tempo = d;
+  fatorAlvo = fatorVento(d.vento);
+  if (!tempoAplicado) { fatorAtual = fatorAlvo; noite = d.dia ? 0 : 1; tempoAplicado = true; }
+  const n = nuvensParaCobertura(d.cobertura, nuvens.length);
+  nuvens.forEach((nv, i) => (nv.alvoV = i < n ? 1 : 0)); // as n primeiras ficam; as outras murcham
+}
+aplicarTempo(tempo);
+if (params.has("depurar")) window.__tempo = (d) => aplicarTempo({ ...tempo, ...d });
 
 // ---------- conteúdo pessoal (texto simples em site/assets/*.txt) ----------
 // Se os arquivos faltarem ou falharem, não há forma: só ruído e relógio.
@@ -223,11 +239,16 @@ function montar() {
     periodo: 3000 + rnd(i + 19) * 4000,
   }));
   // Cada palavra de ruído vai para uma nuvem; a mais próxima do centro vira a palavra dela.
+  const antes = nuvens;
   nuvens = planejarNuvens(W, H);
-  const destino = atribuir(ruido.map((r) => r.base), nuvens);
+  nuvens.forEach((nv, i) => { nv.v = antes[i]?.v ?? null; });
+  aplicarTempo(tempo);
+  nuvens.forEach((nv) => { nv.v ??= nv.alvoV; }); // primeira vez: já nasce no estado certo
+  const ativas = nuvens.filter((nv) => nv.alvoV === 1);
+  const destino = atribuir(ruido.map((r) => r.base), ativas);
   ruido.forEach((r, i) => {
-    const nv = nuvens[destino[i]];
-    r.nuvem = destino[i];
+    const nv = ativas[destino[i]];
+    r.nuvem = nuvens.indexOf(nv);
     r.alvo = { x: nv.cx0 + (rnd(i + 901) - 0.5) * nv.w * 0.6, y: nv.cy + (rnd(i + 433) - 0.5) * nv.h * 0.4 };
     r.atraso = 800 + rnd(i + 57) * 1000 + (Math.hypot(r.base.x - nv.cx0, r.base.y - nv.cy) / Math.max(W, H)) * 500;
   });
@@ -238,7 +259,7 @@ function montar() {
       const d = Math.hypot(r.base.x - nv.cx0, r.base.y - nv.cy);
       if (d < dm) { dm = d; melhor = r; }
     }
-    nv.palavra = melhor?.texto ?? RUIDO[c];
+    nv.palavra = melhor?.texto ?? RUIDO[palavrasRuido[c % palavrasRuido.length]];
   });
 }
 
@@ -307,7 +328,7 @@ function quadro(t) {
   });
   ctx.globalAlpha = 1;
 
-  desenharCeu(t, ti);
+  desenharCeu(t, ti, dt);
   if (!marcadoNuvens && ti > INTRO_MS) { gravarMarcaNuvens(); marcadoNuvens = true; }
   if (!marcado && temForma() && n > inicioTransf + FIM_TRANSF) { gravarMarca(); marcado = true; }
   relogio(n);
@@ -316,27 +337,30 @@ function quadro(t) {
 
 // ---------- nuvens (camada #ceu, por cima de tudo, inclusive do relógio) ----------
 const suave = (v) => { const p = Math.min(1, Math.max(0, v)); return p * p * (3 - 2 * p); };
-// Tempo de deriva (s): parada até a nuvem estufar e depois acelera suavemente até a velocidade normal.
-function derivaIntro(ms) {
-  const tau = Math.max(0, ms) / 1000;
-  return tau < 1 ? tau ** 3 - tau ** 4 / 2 : tau - 0.5;
-}
-function desenharCeu(t, ti) {
+function desenharCeu(t, ti, dt) {
   cctx.clearRect(0, 0, W, H);
   const intro = ti !== Infinity;
-  const deriva = reduzido ? 0 : intro ? derivaIntro(ti - INTRO_DERIVA_MS) : t / 1000;
+  // vento: a velocidade segue o fator suavemente; a deriva é acumulada (nada pula quando o vento muda)
+  fatorAtual += (fatorAlvo - fatorAtual) * Math.min(1, dt / 2);
+  derivaT += reduzido ? 0 : dt * fatorAtual * (intro ? suave((ti - INTRO_DERIVA_MS) / 1000) : 1);
+  // dia/noite: a cor muda aos poucos
+  noite += ((tempo.dia ? 0 : 1) - noite) * Math.min(1, dt / 3);
+  const paleta = noite < 0.002 ? paletaDia : misturar(paletaDia, PALETAS.noite, noite);
   const bob = reduzido ? 0 : intro ? suave((ti - 4500) / 1500) : 1;
   cctx.textAlign = "center";
   cctx.textBaseline = "middle";
   nuvens.forEach((nv, c) => {
-    const u = intro ? Math.min(1, Math.max(0, (ti - INTRO_PUFF_MS - c * 120) / INTRO_PUFF_DUR)) : 1;
+    // nuvens entram estufando e saem murchando quando a cobertura muda (direto, com movimento reduzido)
+    nv.v = reduzido ? nv.alvoV : nv.v + Math.sign(nv.alvoV - nv.v) * Math.min(Math.abs(nv.alvoV - nv.v), dt / 1.5);
+    const uIntro = intro ? Math.min(1, Math.max(0, (ti - INTRO_PUFF_MS - c * 120) / INTRO_PUFF_DUR)) : 1;
+    const u = uIntro * nv.v;
     if (u <= 0) return;
-    const { cx, cy } = posicao(nv, deriva, reduzido ? 0 : t / 1000, bob);
+    const { cx, cy } = posicao(nv, derivaT, reduzido ? 0 : t / 1000, bob);
     if (comSombra) desenharSombra(cctx, nv, cx, cy, paleta, 0.9 * Math.min(1, u * 2));
     desenharNuvem(cctx, nv, cx, cy, u, paleta, 0.95);
-    const a = intro ? suave((ti - INTRO_PALAVRA_MS - c * 60) / 900) : 1;
+    const a = (intro ? suave((ti - INTRO_PALAVRA_MS - c * 60) / 900) : 1) * Math.min(1, nv.v * 2);
     if (a <= 0) return;
-    const tam = Math.min(19, Math.max(11, nv.w * 0.13));
+    const tam = Math.min(19 * ESCALA_NUVEM, Math.max(11 * ESCALA_NUVEM, nv.w * 0.13)); // acompanha o tamanho da nuvem
     cctx.font = `${tam}px ${cor("--font-display")}`;
     cctx.fillStyle = paleta.texto;
     cctx.globalAlpha = 0.9 * a;
@@ -368,4 +392,15 @@ function relogio(n) {
 
 let redim;
 addEventListener("resize", () => { clearTimeout(redim); redim = setTimeout(montar, 150); });
-Promise.all([carregarPessoais(), document.fonts?.load(`1em ${cor("--font-display")}`).catch(() => {}), document.fonts?.ready]).then(() => { montar(); requestAnimationFrame(quadro); });
+// O tempo atrasa no máximo 1,5 s o começo; se vier depois, as nuvens ajustam sozinhas.
+const simulado = lerSimulado(location.search) !== null;
+const pTempo = simulado ? Promise.resolve() : carregarTempo(Date.now()).then(aplicarTempo);
+const atraso = (ms) => new Promise((ok) => setTimeout(ok, ms));
+Promise.all([carregarPessoais(), document.fonts?.load(`1em ${cor("--font-display")}`).catch(() => {}), document.fonts?.ready, Promise.race([pTempo, atraso(1500)])]).then(() => { montar(); requestAnimationFrame(quadro); });
+// Atualiza a cada 15 min e ao voltar para a aba.
+if (!simulado) {
+  let ultimaBusca = Date.now();
+  const atualizar = () => { ultimaBusca = Date.now(); buscarTempo(ultimaBusca).then(aplicarTempo); };
+  setInterval(atualizar, ATUALIZAR_MS);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() - ultimaBusca > ATUALIZAR_MS) atualizar(); });
+}

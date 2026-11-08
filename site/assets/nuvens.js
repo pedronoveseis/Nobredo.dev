@@ -1,14 +1,25 @@
 // Nuvens: cada uma é um aglomerado de círculos (como a referência "Rainy cloud") com uma palavra de ruído no
 // centro. Lógica pura (sem DOM), testada em tools/nuvens.test.mjs. Nada pessoal aqui: repositório público.
-import { mulberry32, ordem } from "./core.js";
+import { mulberry32 } from "./core.js";
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+export const ESCALA_NUVEM = 0.75; // tamanho das nuvens (e da palavra do centro) em relação ao tamanho-base
 
 // Tons do mais claro (na frente) ao mais escuro (atrás). `texto` é a cor da palavra no centro.
 export const PALETAS = {
   creme: { tons: ["#f6ead0", "#efdeb3", "#d9c496"], texto: "#5d5048", sombra: "rgba(0,0,0,.18)" },
+  noite: { tons: ["#b3a07a", "#9a8968", "#7d6f58"], texto: "#352c27", sombra: "rgba(0,0,0,.18)" },
   azul: { tons: ["#ffffff", "#f5f5f5", "#ebebeb"], texto: "#0e5f96", sombra: "rgba(14,126,198,.55)" },
 };
+
+const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const mistura = (a, b, f) => "#" + hex(a).map((v, i) => Math.round(v + (hex(b)[i] - v) * f).toString(16).padStart(2, "0")).join("");
+
+// Paleta entre `a` (f = 0) e `b` (f = 1): a transição dia ↔ noite.
+export function misturar(a, b, f) {
+  const k = clamp(f, 0, 1);
+  return { tons: a.tons.map((t, i) => mistura(t, b.tons[i], k)), texto: mistura(a.texto, b.texto, k), sombra: a.sombra };
+}
 
 // Sobe de 0 a 1 passando um pouco de 1 (a nuvem "estufa" e assenta).
 export function estufar(p) {
@@ -49,20 +60,31 @@ export function gerarNuvem(seed) {
   return { circulos: out, aspecto: (y1 - y0) * k }; // aspecto = altura / largura
 }
 
-export function quantasNuvens(W, H) {
-  return clamp(Math.round((W * H) / 100000), 5, 10);
+// Quantas nuvens cabem na tela (o conjunto completo; o tempo liga só as primeiras).
+export function maxNuvens(W, H) {
+  return clamp(Math.round((W * H) / 45000), 5, 10);
 }
 
-// Layout: faixas verticais embaralhadas (cobrem a altura toda, o relógio inclusive), larguras variadas,
-// velocidade menor nas maiores. `cx0, cy` é a posição inicial (visível); depois ela vai à deriva.
+// Faixa vertical de cada nuvem: ranking de frac((i + 0.5) * phi). Qualquer prefixo (3, 4, 5... nuvens) fica
+// bem espalhado pela altura, então ligar ou desligar nuvens não deixa buracos nem amontoa.
+export function faixas(n) {
+  const chave = Array.from({ length: n }, (_, i) => ((i + 0.5) * 0.6180339887498949) % 1);
+  const ordenado = chave.map((c, i) => [c, i]).sort((a, b) => a[0] - b[0]);
+  const rank = new Array(n);
+  ordenado.forEach(([, i], r) => (rank[i] = r));
+  return rank;
+}
+
+// Layout do conjunto completo: faixas verticais (cobrem a altura toda, o relógio inclusive), larguras
+// variadas, velocidade menor nas maiores. `cx0, cy` é a posição inicial (visível); depois vai à deriva.
 export function planejarNuvens(W, H, seed = 61) {
-  const n = quantasNuvens(W, H);
+  const n = maxNuvens(W, H);
   const rnd = mulberry32(seed);
-  const faixas = ordem(n, seed);
+  const rankFaixa = faixas(n);
   const alturaFaixa = H / n;
   const lista = [];
   for (let i = 0; i < n; i++) {
-    const w = clamp(W * (0.26 + 0.24 * rnd()), 120, 340);
+    const w = clamp(W * (0.26 + 0.24 * rnd()), 120, 340) * ESCALA_NUVEM;
     const nuvem = gerarNuvem(seed * 101 + i);
     const h = w * nuvem.aspecto;
     const folga = w / 2 + 20;
@@ -70,7 +92,7 @@ export function planejarNuvens(W, H, seed = 61) {
       ...nuvem,
       w, h,
       cx0: clamp(((i + 0.2 + 0.6 * rnd()) / n) * W, w * 0.35, W - w * 0.35),
-      cy: (faixas[i] + 0.5) * alturaFaixa + (rnd() - 0.5) * alturaFaixa * 0.5,
+      cy: (rankFaixa[i] + 0.5) * alturaFaixa + (rnd() - 0.5) * alturaFaixa * 0.5,
       vel: clamp(2800 / w, 8, 28) * (0.85 + 0.3 * rnd()),
       periodoBob: 3 + 2 * rnd(),
       faseBob: rnd() * Math.PI * 2,
