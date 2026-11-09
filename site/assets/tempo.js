@@ -3,7 +3,7 @@
 // Dados: Open-Meteo.com (CC BY 4.0), https://open-meteo.com/. Só vão as coordenadas fixas do Rio.
 
 export const RIO = { lat: -22.9068, lon: -43.1729 };
-export const URL_TEMPO = `https://api.open-meteo.com/v1/forecast?latitude=${RIO.lat}&longitude=${RIO.lon}&current=cloud_cover,wind_speed_10m,is_day&timezone=America%2FSao_Paulo`;
+export const URL_TEMPO = `https://api.open-meteo.com/v1/forecast?latitude=${RIO.lat}&longitude=${RIO.lon}&current=cloud_cover,wind_speed_10m,is_day,precipitation&timezone=America%2FSao_Paulo`;
 export const TTL_MS = 30 * 60 * 1000;
 export const ATUALIZAR_MS = 15 * 60 * 1000;
 export const MIN_NUVENS = 5;
@@ -17,14 +17,25 @@ export function ehDia(ms) {
   return h >= 6 && h < 18;
 }
 
-export const neutro = (ms) => ({ cobertura: 0.5, vento: 12, dia: ehDia(ms) });
+export const neutro = (ms) => ({ cobertura: 0.5, vento: 12, dia: ehDia(ms), chuva: 0 });
 
-// Resposta da API → { cobertura: 0..1, vento: km/h, dia }, ou null se estiver incompleta ou inválida.
+// Precipitação (mm) → intensidade da chuva 0..1: 0,1 mm ≈ 0,14; 1 mm ≈ 0,45; 5 mm ou mais = 1.
+export function intensidadeChuva(mm) {
+  return Number.isFinite(mm) && mm > 0 ? clamp(Math.sqrt(mm / 5), 0, 1) : 0;
+}
+
+// Quantas das n nuvens ativas chovem: nenhuma sem chuva; com qualquer chuva, pelo menos uma.
+export function nuvensComChuva(intensidade, n) {
+  if (!(intensidade > 0) || n <= 0) return 0;
+  return Math.min(n, Math.max(1, Math.round(intensidade * n)));
+}
+
+// Resposta da API → { cobertura: 0..1, vento: km/h, dia, chuva: 0..1 }, ou null se estiver incompleta ou inválida.
 export function normalizarTempo(json, ms = Date.now()) {
   const c = json?.current;
   if (!c || typeof c.cloud_cover !== "number" || typeof c.wind_speed_10m !== "number") return null;
   if (!Number.isFinite(c.cloud_cover) || !Number.isFinite(c.wind_speed_10m) || c.cloud_cover < 0 || c.cloud_cover > 100 || c.wind_speed_10m < 0) return null;
-  return { cobertura: c.cloud_cover / 100, vento: Math.min(150, c.wind_speed_10m), dia: c.is_day === 1 ? true : c.is_day === 0 ? false : ehDia(ms) };
+  return { cobertura: c.cloud_cover / 100, vento: Math.min(150, c.wind_speed_10m), dia: c.is_day === 1 ? true : c.is_day === 0 ? false : ehDia(ms), chuva: intensidadeChuva(c.precipitation) };
 }
 
 // Céu limpo = MIN_NUVENS; totalmente encoberto = o máximo da tela.
@@ -40,12 +51,12 @@ export function fatorVento(kmh) {
 export const cacheValido = (entrada, ms, ttl = TTL_MS) =>
   !!entrada && typeof entrada.t === "number" && !!entrada.dados && ms - entrada.t >= 0 && ms - entrada.t < ttl;
 
-// ?cobertura=0..1&vento=km/h&noite=1 simula o tempo (como ?data= simula a data). null se nada foi pedido.
+// ?cobertura=0..1&vento=km/h&noite=1&chuva=0..1 simula o tempo (como ?data= simula a data). null se nada foi pedido.
 export function lerSimulado(search) {
   const q = new URLSearchParams(search);
-  if (!["cobertura", "vento", "noite"].some((k) => q.has(k))) return null;
+  if (!["cobertura", "vento", "noite", "chuva"].some((k) => q.has(k))) return null;
   const n = (k, padrao) => (Number.isFinite(parseFloat(q.get(k))) ? parseFloat(q.get(k)) : padrao);
-  return { cobertura: clamp(n("cobertura", 0.5), 0, 1), vento: clamp(n("vento", 12), 0, 150), dia: q.get("noite") !== "1" };
+  return { cobertura: clamp(n("cobertura", 0.5), 0, 1), vento: clamp(n("vento", 12), 0, 150), dia: q.get("noite") !== "1", chuva: clamp(n("chuva", 0), 0, 1) };
 }
 
 const lerCache = () => { try { return JSON.parse(localStorage.getItem(CHAVE)); } catch { return null; } };

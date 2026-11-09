@@ -3,13 +3,14 @@
 import { mulberry32 } from "./core.js";
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-export const ESCALA_NUVEM = 0.5625; // tamanho das nuvens (e da palavra do centro) em relação ao tamanho-base
+export const ESCALA_NUVEM = 0.5625;
+const MIN_GOTAS = 4; // tamanho das nuvens (e da palavra do centro) em relação ao tamanho-base
 
 // Tons do mais claro (na frente) ao mais escuro (atrás). `texto` é a cor da palavra no centro.
 export const PALETAS = {
-  creme: { tons: ["#f6ead0", "#efdeb3", "#d9c496"], texto: "#5d5048", sombra: "rgba(0,0,0,.18)" },
-  noite: { tons: ["#b3a07a", "#9a8968", "#7d6f58"], texto: "#352c27", sombra: "rgba(0,0,0,.18)" },
-  azul: { tons: ["#ffffff", "#f5f5f5", "#ebebeb"], texto: "#0e5f96", sombra: "rgba(14,126,198,.55)" },
+  creme: { tons: ["#f6ead0", "#efdeb3", "#d9c496"], texto: "#5d5048", sombra: "rgba(0,0,0,.18)", gota: "#d6ecf7" },
+  noite: { tons: ["#b3a07a", "#9a8968", "#7d6f58"], texto: "#352c27", sombra: "rgba(0,0,0,.18)", gota: "#9db4c2" },
+  azul: { tons: ["#ffffff", "#f5f5f5", "#ebebeb"], texto: "#0e5f96", sombra: "rgba(14,126,198,.55)", gota: "#ffffff" },
 };
 
 const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
@@ -18,7 +19,7 @@ const mistura = (a, b, f) => "#" + hex(a).map((v, i) => Math.round(v + (hex(b)[i
 // Paleta entre `a` (f = 0) e `b` (f = 1): a transição dia ↔ noite.
 export function misturar(a, b, f) {
   const k = clamp(f, 0, 1);
-  return { tons: a.tons.map((t, i) => mistura(t, b.tons[i], k)), texto: mistura(a.texto, b.texto, k), sombra: a.sombra };
+  return { tons: a.tons.map((t, i) => mistura(t, b.tons[i], k)), texto: mistura(a.texto, b.texto, k), sombra: a.sombra, gota: mistura(a.gota, b.gota, k) };
 }
 
 // Sobe de 0 a 1 passando um pouco de 1 (a nuvem "estufa" e assenta).
@@ -60,6 +61,22 @@ export function gerarNuvem(seed) {
   return { circulos: out, aspecto: (y1 - y0) * k }; // aspecto = altura / largura
 }
 
+// Chuva (inspirada no CodePen "Pure CSS Cloud & Rain Animation"): fios finos que saem de trás da nuvem, caem
+// e somem, cada um com período e fase próprios. Lista determinística, na quantidade máxima (intensidade 1).
+export function gerarGotas(seed, w) {
+  const rnd = mulberry32(seed);
+  const n = Math.max(MIN_GOTAS, Math.round((w / 10) * 2));
+  return Array.from({ length: n }, () => ({
+    dx: (rnd() - 0.5) * 0.76, // posição horizontal, em largura da nuvem (−0,38 a +0,38)
+    periodo: 0.5 + 0.5 * rnd(), // s por queda (0,5 a 1)
+    fase: rnd(),
+    comp: 0.08 + 0.04 * rnd(), // comprimento do fio, em largura da nuvem
+  }));
+}
+
+// Quantos fios aparecem com a intensidade `i` (0..1): 25% a 100% dos fios da nuvem, no mínimo MIN_GOTAS.
+export const gotasVisiveis = (nv, i) => (i > 0 ? Math.min(nv.gotas.length, Math.max(MIN_GOTAS, Math.round(nv.gotas.length * (0.25 + 0.75 * clamp(i, 0, 1))))) : 0);
+
 // Quantas nuvens cabem na tela (o conjunto completo; o tempo liga só as primeiras).
 export function maxNuvens(W, H) {
   return clamp(Math.round((W * H) / 28000), 8, 16);
@@ -94,6 +111,7 @@ export function planejarNuvens(W, H, seed = 61) {
       cx0: clamp(((i + 0.2 + 0.6 * rnd()) / n) * W, w * 0.35, W - w * 0.35),
       cy: (rankFaixa[i] + 0.5) * alturaFaixa + (rnd() - 0.5) * alturaFaixa * 0.5,
       vel: clamp(2800 / w, 8, 28) * (0.85 + 0.3 * rnd()),
+      gotas: gerarGotas(seed * 211 + i, w),
       periodoBob: 3 + 2 * rnd(),
       faseBob: rnd() * Math.PI * 2,
       xmin: -folga,
@@ -153,4 +171,27 @@ export function desenharSombra(ctx, nv, cx, cy, paleta, alfa = 1) {
   ctx.beginPath();
   ctx.ellipse(cx, cy + nv.h / 2 + nv.h * 0.55, nv.w * 0.36, nv.h * 0.07, 0, 0, Math.PI * 2);
   ctx.fill();
+}
+
+// Chuva da nuvem em (cx, cy), intensidade `i` (0..1), tempo `t` em s. O fio nasce atrás do corpo da nuvem (que é
+// desenhada depois), cai 0,9 × a largura inclinado pelo vento (`incl`, 0..0,25) e perde a opacidade ao cair.
+export function desenharChuva(ctx, nv, cx, cy, t, i, paleta, incl, alfa = 1) {
+  const n = gotasVisiveis(nv, i);
+  if (!n || alfa <= 0) return;
+  const queda = nv.w * 0.9, y0 = cy + nv.h * 0.3;
+  ctx.strokeStyle = paleta.gota;
+  ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(1, nv.w * 0.012);
+  for (let k = 0; k < n; k++) {
+    const g = nv.gotas[k];
+    const p = (t / g.periodo + g.fase) % 1;
+    const x = cx + g.dx * nv.w + incl * p * queda, y = y0 + p * queda;
+    const comp = g.comp * nv.w, dx = incl * comp;
+    const a = alfa * 0.85 * (1 - p);
+    ctx.globalAlpha = a * 0.4; // cauda
+    ctx.beginPath(); ctx.moveTo(x - dx, y - comp); ctx.lineTo(x - dx / 2, y - comp / 2); ctx.stroke();
+    ctx.globalAlpha = a; // ponta
+    ctx.beginPath(); ctx.moveTo(x - dx / 2, y - comp / 2); ctx.lineTo(x, y); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
 }

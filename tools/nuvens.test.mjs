@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { gerarNuvem, planejarNuvens, maxNuvens, atribuir, posicao, estufar, faixas, misturar, PALETAS } from "../site/assets/nuvens.js";
+import { gerarNuvem, planejarNuvens, maxNuvens, atribuir, posicao, estufar, faixas, misturar, gerarGotas, gotasVisiveis, desenharChuva, PALETAS } from "../site/assets/nuvens.js";
 
 test("gerarNuvem: determinística e com largura 1 centrada", () => {
   assert.deepEqual(gerarNuvem(7), gerarNuvem(7));
@@ -92,4 +92,30 @@ test("misturar: extremos e meio", () => {
   assert.ok(meio.tons.every((t) => /^#[0-9a-f]{6}$/.test(t)));
   assert.notEqual(meio.tons[0], creme.tons[0]);
   assert.deepEqual(misturar(creme, noite, 9).tons, noite.tons);
+});
+
+test("gerarGotas: determinística, dentro da nuvem; gotasVisiveis cresce com a intensidade", () => {
+  const nv = planejarNuvens(390, 844)[0];
+  assert.deepEqual(gerarGotas(5, nv.w), gerarGotas(5, nv.w));
+  assert.ok(nv.gotas.length >= 4);
+  for (const g of nv.gotas) {
+    assert.ok(Math.abs(g.dx) <= 0.38 + 1e-9 && g.periodo >= 0.5 && g.periodo <= 1 && g.fase >= 0 && g.fase < 1 && g.comp > 0);
+  }
+  assert.equal(gotasVisiveis(nv, 0), 0);
+  let ant = 0;
+  for (let i = 0.05; i <= 1; i += 0.05) { const n = gotasVisiveis(nv, i); assert.ok(n >= ant && n >= 4 && n <= nv.gotas.length); ant = n; }
+  assert.equal(gotasVisiveis(nv, 1), nv.gotas.length);
+});
+
+test("desenharChuva: usa a cor da gota, sem chuva não desenha, paletas têm gota e misturam", () => {
+  const nv = planejarNuvens(390, 844)[0];
+  const chamadas = [];
+  const ctx = new Proxy({}, { get: (_, k) => (k === "strokeStyle" ? undefined : () => chamadas.push(k)), set: (_, k, v) => { if (k === "strokeStyle") chamadas.push("cor:" + v); return true; } });
+  desenharChuva(ctx, nv, 100, 100, 1.3, 0, PALETAS.creme, 0.1);
+  assert.equal(chamadas.length, 0);
+  desenharChuva(ctx, nv, 100, 100, 1.3, 1, PALETAS.creme, 0.1);
+  assert.ok(chamadas.includes("cor:#d6ecf7") && chamadas.includes("stroke"));
+  for (const p of Object.values(PALETAS)) assert.match(p.gota, /^#[0-9a-f]{6}$/);
+  assert.equal(misturar(PALETAS.creme, PALETAS.noite, 1).gota, PALETAS.noite.gota);
+  assert.equal(misturar(PALETAS.creme, PALETAS.noite, 0).gota, PALETAS.creme.gota);
 });

@@ -1,8 +1,8 @@
 import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, proximaPalavra, semAnagramas, embaralhar, encaixadas, partes, empacotar, linhasBloco } from "./core.js";
 import { RUIDO as TODO_RUIDO } from "./ruido.js";
 const RUIDO = semAnagramas(TODO_RUIDO); // sem anagramas: nada repete nem colide ao embaralhar
-import { PALETAS, ESCALA_NUVEM, misturar, planejarNuvens, atribuir, posicao, desenharNuvem, desenharSombra } from "./nuvens.js";
-import { ATUALIZAR_MS, neutro, nuvensParaCobertura, fatorVento, lerSimulado, carregarTempo, buscarTempo } from "./tempo.js";
+import { PALETAS, ESCALA_NUVEM, misturar, planejarNuvens, atribuir, posicao, desenharNuvem, desenharSombra, desenharChuva } from "./nuvens.js";
+import { ATUALIZAR_MS, neutro, nuvensParaCobertura, nuvensComChuva, fatorVento, lerSimulado, carregarTempo, buscarTempo } from "./tempo.js";
 
 const SEED_PALAVRAS = 4;   // ordem das palavras ao longo da forma
 const SEED_ENCAIXE = 22;   // ordem em que as palavras se encaixam
@@ -76,6 +76,11 @@ function aplicarTempo(d) {
   if (!tempoAplicado) { fatorAtual = fatorAlvo; noite = d.dia ? 0 : 1; tempoAplicado = true; }
   const n = nuvensParaCobertura(d.cobertura, nuvens.length);
   nuvens.forEach((nv, i) => (nv.alvoV = i < n ? 1 : 0)); // as n primeiras ficam; as outras murcham
+  // chuva: entre as nuvens ativas, chovem as k de menor `rank` (sorteado por visita)
+  const k = nuvensComChuva(d.chuva ?? 0, n);
+  const ativas = nuvens.filter((nv) => nv.alvoV === 1).sort((a, b) => a.rank - b.rank);
+  nuvens.forEach((nv) => (nv.alvoCh = 0));
+  ativas.slice(0, k).forEach((nv) => (nv.alvoCh = d.chuva ?? 0));
 }
 aplicarTempo(tempo);
 if (params.has("depurar")) window.__tempo = (d) => aplicarTempo({ ...tempo, ...d });
@@ -248,7 +253,8 @@ function montar() {
   // Cada palavra de ruído vai para uma nuvem; a mais próxima do centro vira a palavra dela.
   const antes = nuvens;
   nuvens = planejarNuvens(W, H);
-  nuvens.forEach((nv, i) => { nv.v = antes[i]?.v ?? null; });
+  const rk = ordem(nuvens.length, SEMENTE_RUIDO + 3);
+  nuvens.forEach((nv, i) => { nv.v = antes[i]?.v ?? null; nv.ch = antes[i]?.ch ?? 0; nv.rank = rk[i]; });
   aplicarTempo(tempo);
   nuvens.forEach((nv) => { nv.v ??= nv.alvoV; }); // primeira vez: já nasce no estado certo
   const ativas = nuvens.filter((nv) => nv.alvoV === 1);
@@ -376,6 +382,15 @@ function desenharCeu(t, ti, dt) {
     vivas.push({ nv, c, u, ...pos });
   });
   if (comSombra) for (const { nv, cx, cy, u } of vivas) desenharSombra(cctx, nv, cx, cy, paleta, 0.9 * Math.min(1, u * 2));
+  // chuva: depois do intro, com rampa; atrás do corpo das nuvens (que são desenhadas em seguida)
+  const rampaChuva = reduzido ? 0 : suave((ti - INTRO_MS) / 2000);
+  const incl = Math.min(0.25, Math.max(0.02, ((fatorAtual - 0.5) / 2) * 0.25));
+  for (const { nv, u, cx, cy } of vivas) {
+    const alvo = nv.alvoCh * rampaChuva;
+    nv.ch += (alvo - nv.ch) * Math.min(1, dt / 2);
+    if (nv.ch < 0.005) { nv.ch = alvo === 0 ? 0 : nv.ch; continue; }
+    desenharChuva(cctx, nv, cx, cy, t / 1000, nv.ch, paleta, incl, Math.min(1, u * 1.5));
+  }
   for (const { nv, c, u, cx, cy } of vivas) {
     desenharNuvem(cctx, nv, cx, cy, u, paleta, 0.95);
     const a = (intro ? suave((ti - INTRO_PALAVRA_MS - c * 60) / 900) : 1) * Math.min(1, nv.v * 2);
