@@ -2,7 +2,7 @@ import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, proximaPalavra, semAnagramas,
 import { RUIDO as TODO_RUIDO } from "./ruido.js";
 const RUIDO = semAnagramas(TODO_RUIDO); // sem anagramas: nada repete nem colide ao embaralhar
 import { PALETAS, ESCALA_NUVEM, misturar, planejarNuvens, atribuir, posicao, desenharNuvem, desenharSombra, desenharChuva } from "./nuvens.js";
-import { ATUALIZAR_MS, neutro, nuvensParaCobertura, nuvensComChuva, fatorVento, lerSimulado, carregarTempo, buscarTempo } from "./tempo.js";
+import { ATUALIZAR_MS, neutro, nuvensParaCobertura, nuvensComChuva, fatorVento, lerSimulado, carregarTempo, buscarTempo, lerBruto, normalizarTempo, URL_TEMPO } from "./tempo.js";
 
 const SEED_PALAVRAS = 4;   // ordem das palavras ao longo da forma
 const SEED_ENCAIXE = 22;   // ordem em que as palavras se encaixam
@@ -84,6 +84,24 @@ function aplicarTempo(d) {
 }
 aplicarTempo(tempo);
 if (params.has("depurar")) window.__tempo = (d) => aplicarTempo({ ...tempo, ...d });
+
+// Log da Open-Meteo sob demanda: no console do navegador, digite __tempoLog(). Consulta a API na hora (sem cache),
+// mostra a resposta crua, o que o site entende dela e o que está usando agora. Não altera o site.
+window.__tempoLog = async () => {
+  const r = await lerBruto();
+  console.group(`%cOpen-Meteo • ${new Date().toLocaleTimeString("pt-BR")} • HTTP ${r.status} • ${r.ms} ms`, "font-weight:bold");
+  console.log("URL:", URL_TEMPO);
+  if (r.erro) console.warn("Falhou:", r.erro);
+  console.log("Resposta crua:", r.json);
+  if (r.json?.current) console.table(r.json.current);
+  const n = normalizarTempo(r.json);
+  console.log("O site entende (cobertura 0..1, vento km/h, dia, chuva 0..1):", n ?? "resposta inválida: o site usa cache ou o tempo neutro");
+  console.log("Em uso agora no site:", { ...tempo });
+  console.log("Nuvens:", { naTela: nuvens.length, ativas: nuvens.filter((nv) => nv.alvoV === 1).length, chovendo: nuvens.filter((nv) => nv.alvoCh > 0).length, fatorVento: Number(fatorAtual.toFixed(2)) });
+  console.groupEnd();
+  return r.json;
+};
+if (params.has("depurar")) console.info("Digite __tempoLog() para ver a resposta da Open-Meteo.");
 
 // ---------- conteúdo pessoal (texto simples em site/assets/*.txt) ----------
 // Se os arquivos faltarem ou falharem, não há forma: só ruído e relógio.

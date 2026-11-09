@@ -59,6 +59,22 @@ export function lerSimulado(search) {
   return { cobertura: clamp(n("cobertura", 0.5), 0, 1), vento: clamp(n("vento", 12), 0, 150), dia: q.get("noite") !== "1", chuva: clamp(n("chuva", 0), 0, 1) };
 }
 
+// Resposta crua da API, sem cache e sem mexer no site: serve ao log de depuração (window.__tempoLog).
+export async function lerBruto(limiteMs = 6000) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), limiteMs);
+  const t0 = Date.now();
+  try {
+    const r = await fetch(URL_TEMPO, { signal: ac.signal, referrerPolicy: "no-referrer" });
+    const json = await r.json().catch(() => null);
+    return { ok: r.ok, status: r.status, ms: Date.now() - t0, json };
+  } catch (e) {
+    return { ok: false, status: 0, ms: Date.now() - t0, json: null, erro: String(e?.message ?? e) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const lerCache = () => { try { return JSON.parse(localStorage.getItem(CHAVE)); } catch { return null; } };
 const gravarCache = (dados, ms) => { try { localStorage.setItem(CHAVE, JSON.stringify({ t: ms, dados })); } catch { /* sem armazenamento: ok */ } };
 

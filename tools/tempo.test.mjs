@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizarTempo, nuvensParaCobertura, fatorVento, ehDia, cacheValido, lerSimulado, neutro, intensidadeChuva, nuvensComChuva, MIN_NUVENS, URL_TEMPO } from "../site/assets/tempo.js";
+import { normalizarTempo, nuvensParaCobertura, fatorVento, ehDia, cacheValido, lerSimulado, neutro, intensidadeChuva, nuvensComChuva, MIN_NUVENS, URL_TEMPO, lerBruto } from "../site/assets/tempo.js";
 
 const ok = { current: { cloud_cover: 61, wind_speed_10m: 13.1, is_day: 0 } };
 
@@ -99,4 +99,19 @@ test("nuvensComChuva: nenhuma sem chuva, ao menos uma com qualquer chuva, todas 
   assert.equal(nuvensComChuva(1, 13), 13);
   assert.equal(nuvensComChuva(0.01, 13), 1);
   assert.equal(nuvensComChuva(1, 0), 0);
+});
+
+test("lerBruto: devolve a resposta crua e o status, e não derruba se a rede falhar", async () => {
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = async (url) => { assert.equal(url, URL_TEMPO); return { ok: true, status: 200, json: async () => ({ current: { cloud_cover: 10 } }) }; };
+    const a = await lerBruto();
+    assert.ok(a.ok && a.status === 200 && a.json.current.cloud_cover === 10 && a.ms >= 0);
+    globalThis.fetch = async () => { throw new Error("sem rede"); };
+    const b = await lerBruto();
+    assert.ok(!b.ok && b.status === 0 && b.json === null && b.erro === "sem rede");
+    globalThis.fetch = async () => ({ ok: false, status: 500, json: async () => { throw new Error("html"); } });
+    const c = await lerBruto();
+    assert.ok(!c.ok && c.status === 500 && c.json === null);
+  } finally { globalThis.fetch = original; }
 });
