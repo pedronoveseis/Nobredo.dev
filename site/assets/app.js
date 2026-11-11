@@ -469,9 +469,9 @@ function refazerCamada(fixas, t) {
 }
 
 // Luz do sol, por baixo das palavras (como no CodePen: disco com brilho e raios em gradiente, aqui dourados).
-// `sol` = progresso 0..1 (o halo cresce com o disco; os raios surgem na segunda metade); `vivo` = 1 → 0 na onda de 21/11.
+// `sol` = progresso 0..1 (o halo cresce nos primeiros 15%; os raios surgem entre 20% e 80%); `vivo` = 1 → 0 na onda de 21/11.
 function desenharBrilho(g, rot, sol, vivo) {
-  const ha = suave(sol) * vivo, ra = suave((sol - 0.5) / 0.5) * vivo;
+  const ha = Math.min(1, sol / 0.15) * vivo, ra = suave((sol - 0.2) / 0.6) * vivo; // o halo já aparece nas primeiras horas; os raios, no 1º dia
   if (ha <= 0.004) return;
   const rgba = (al) => `rgba(232,184,63,${al})`;
   const halo = ctx.createRadialGradient(g.cx, g.cy, g.Rd * 0.3, g.cx, g.cy, g.Rd * 1.7);

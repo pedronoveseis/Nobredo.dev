@@ -12,8 +12,9 @@ export const fracaoSol = (agora) => fracao(agora, SOL_INICIO, SOL_FIM);
 
 const suave = (v) => { const p = Math.min(1, Math.max(0, v)); return p * p * (3 - 2 * p); };
 
-// Velocidade de giro (rad/s) para o progresso s: parado no bloco, acelera enquanto vira círculo, estável a partir de 1.
-export const velocidadeGiro = (s) => ((2 * Math.PI) / VOLTA_S) * suave(s);
+// Velocidade de giro (rad/s) para o progresso s: parado no bloco, cresce linearmente até a metade do caminho e fica
+// em 1 volta a cada 120 s a partir daí.
+export const velocidadeGiro = (s) => ((2 * Math.PI) / VOLTA_S) * Math.min(1, Math.max(0, 2 * s));
 
 // Os 10 raios do pen: ângulo (graus), comprimento e largura originais (px do pen; disco de 70 px).
 export const RAIOS = [
@@ -110,9 +111,15 @@ export function planejarSol(W, util, f, larguras, rank) {
   return { cx: W / 2, cy: util / 2, Rd, rMin: Rd * 0.2, raios: raiosDe(Rd), membros };
 }
 
-// Quanto da viagem bloco → disco a palavra já fez (0..1): as do miolo saem primeiro e as da borda por último,
-// de modo que o círculo se fecha de dentro para fora; tudo termina em s = 1.
-export const faseDisco = (s, r, Rd) => suave((s - 0.5 * Math.min(1, r / Rd)) / 0.5);
+// Quanto da viagem bloco → anel a palavra já fez (0..1). Começa logo (em s = 0 as palavras do anel interno já saem do
+// lugar) e se espalha por todo o período: os anéis de dentro saem primeiro e os de fora depois (atraso de 0 a 0,3), de
+// modo que o círculo se fecha de dentro para fora. Sai rápido e pousa devagar (ease-out cúbico); tudo termina em s = 1.
+export function faseDisco(s, r, Rd) {
+  const rho = Math.min(1, Math.max(0.2, r / Rd));
+  const atraso = (0.3 * (rho - 0.2)) / 0.8;
+  const x = Math.min(1, Math.max(0, (s - atraso) / (1 - atraso)));
+  return 1 - (1 - x) ** 3;
+}
 
 // Posição do CENTRO da palavra quando o disco girou `rot` radianos (todos os anéis giram juntos, como no pen).
 export function posicaoDisco(slot, geo, rot) {

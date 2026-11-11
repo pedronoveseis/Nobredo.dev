@@ -159,3 +159,31 @@ test("letras no arco: reta sem curvatura; com curvatura ficam sobre o círculo e
   const quase = letrasNoArco(av, 1e-4);
   quase.forEach((l, i) => assert.ok(Math.abs(l.lx - reta[i].lx) < 1e-3 && Math.abs(l.ly) < 1e-2));
 });
+
+test("ritmo: às 12h36 de 11/11 (5%) o anel interno já saiu do lugar e o halo já aparece", () => {
+  const s = fracaoSol(Date.parse("2026-11-11T12:36:00-03:00"));
+  assert.ok(s > 0.05 && s < 0.06);
+  assert.ok(faseDisco(s, 20, 100) > 0.05, "anel interno ainda parado");
+  assert.ok(faseDisco(s, 100, 100) === 0, "anel externo ainda espera");
+  assert.ok(faseDisco(0, 20, 100) === 0 && faseDisco(0.01, 20, 100) > 0.01, "começa em s = 0");
+  assert.ok(velocidadeGiro(s) > 0.05 * ((2 * Math.PI) / VOLTA_S), "giro ainda imperceptível");
+});
+
+test("ritmo: de 11/11 08h a 15/11 00h algo novo se move todo dia, de dentro para fora, e tudo termina em 15/11", () => {
+  const DIA = 86400000;
+  const soma = (t) => [20, 40, 60, 80, 100].reduce((a, r) => a + faseDisco(fracaoSol(t), r, 100), 0);
+  for (let t = SOL_INICIO; t + DIA <= SOL_FIM; t += DIA) assert.ok(soma(t + DIA) - soma(t) > 0.3, `dia ${new Date(t).toISOString()}`);
+  assert.equal(soma(SOL_FIM), 5);
+  // o anel interno sempre está à frente do externo
+  for (let s = 0; s <= 1; s += 0.05) for (const [a, b] of [[20, 60], [60, 100]]) assert.ok(faseDisco(s, a, 100) >= faseDisco(s, b, 100) - 1e-12);
+  // monótona e pousa devagar: a velocidade final tende a zero
+  for (let s = 0; s < 1; s += 0.02) assert.ok(faseDisco(s + 0.02, 60, 100) >= faseDisco(s, 60, 100));
+  assert.ok(faseDisco(1, 60, 100) - faseDisco(0.98, 60, 100) < 0.01);
+});
+
+test("giro: linear até a metade do caminho e constante depois", () => {
+  const w = (2 * Math.PI) / VOLTA_S;
+  assert.ok(Math.abs(velocidadeGiro(0.25) - w / 2) < 1e-12);
+  assert.ok(Math.abs(velocidadeGiro(0.5) - w) < 1e-12);
+  assert.ok(Math.abs(velocidadeGiro(0.8) - w) < 1e-12);
+});
