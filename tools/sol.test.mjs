@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SOL_INICIO, SOL_FIM, VOLTA_S, RAIOS, fracaoSol, velocidadeGiro, raiosDe, empacotarDisco, planejarSol, faseDisco, posicaoDisco, angulo } from "../site/assets/sol.js";
+import { SOL_INICIO, SOL_FIM, VOLTA_S, RAIOS, fracaoSol, velocidadeGiro, raiosDe, empacotarAneis, planejarSol, faseDisco, posicaoDisco, anguloDaPalavra, letrasNoArco, angulo } from "../site/assets/sol.js";
 import { ALVO, ordem, encaixadas } from "../site/assets/core.js";
 
 const larguras = (n) => Array.from({ length: n }, (_, i) => 22 + ((i * 7) % 5) * 6);
@@ -46,27 +46,49 @@ test("raios: 10, de luz (sem palavras), nascem sob a borda do disco e saem dele,
   assert.equal(geo.raios.length, 10);
 });
 
-test("disco: palavras em linhas dentro do círculo, sem sobreposição, na ordem dada", () => {
-  const w = larguras(60);
-  const { slots, ok } = empacotarDisco(120, 9, 8, w);
+test("anéis: palavras sobre círculos concêntricos dentro do disco, sem sobreposição, na ordem dada", () => {
+  const w = larguras(80);
+  const { slots, ok } = empacotarAneis(120, 8, w);
   assert.ok(ok);
-  const linhas = new Map();
+  const aneis = new Map();
   slots.forEach((s, i) => {
     assert.equal(s.w, w[i]);
-    assert.ok(Math.hypot(Math.abs(s.u) + s.w / 2, Math.abs(s.v) + 4) <= 120 + 1, "palavra para fora do disco");
-    if (!linhas.has(s.v)) linhas.set(s.v, []);
-    linhas.get(s.v).push(i);
+    assert.ok(s.r + 4 <= 120 + 1e-6, "anel para fora do disco");
+    assert.ok(s.r >= 120 * 0.2 - 1e-6, "invade o miolo livre");
+    if (!aneis.has(s.anel)) aneis.set(s.anel, []);
+    aneis.get(s.anel).push(i);
   });
-  let ant = -Infinity;
-  for (const [v, idx] of [...linhas].sort((a, b) => a[0] - b[0])) {
-    assert.ok(Math.min(...idx) > ant, "ordem preservada de cima para baixo");
-    ant = Math.max(...idx);
-    for (let k = 1; k < idx.length; k++) assert.ok(slots[idx[k]].u - slots[idx[k]].w / 2 >= slots[idx[k - 1]].u + slots[idx[k - 1]].w / 2 - 1e-6, `linha ${v}`);
+  assert.ok(aneis.size >= 3, "vários anéis");
+  // o raio de cada anel é um só e diminui de fora para dentro; a ordem das palavras segue anel a anel
+  let rAnt = Infinity, iAnt = -1;
+  for (const [, idx] of [...aneis].sort((a, b) => a[0] - b[0])) {
+    const r = slots[idx[0]].r;
+    assert.ok(idx.every((i) => slots[i].r === r));
+    assert.ok(r < rAnt);
+    assert.ok(Math.min(...idx) > iAnt);
+    rAnt = r; iAnt = Math.max(...idx);
+    // dentro do anel: a distância em arco entre vizinhas cabe as duas metades
+    const ord = [...idx].sort((a, b) => slots[a].th - slots[b].th);
+    for (let k = 1; k < ord.length; k++) {
+      const d = (slots[ord[k]].th - slots[ord[k - 1]].th) * r;
+      assert.ok(d >= (slots[ord[k]].w + slots[ord[k - 1]].w) / 2 - 1e-6, `anel ${slots[idx[0]].anel}: sobreposição`);
+    }
   }
 });
 
-test("disco: avisa quando as palavras não cabem", () => {
-  const { ok, slots } = empacotarDisco(30, 9, 8, larguras(200));
+test("anéis: um anel cheio é um laço fechado (o último e o primeiro também não se sobrepõem)", () => {
+  const w = larguras(500);
+  const { slots } = empacotarAneis(150, 8, w);
+  const externo = slots.filter((s) => s && s.anel === 0);
+  const r = externo[0].r;
+  const ord = [...externo].sort((a, b) => a.th - b.th);
+  const volta = (ord[0].th + 2 * Math.PI - ord[ord.length - 1].th) * r;
+  assert.ok(volta >= (ord[0].w + ord[ord.length - 1].w) / 2 - 1e-6);
+  for (const s of externo) assert.ok(s.th >= -Math.PI / 2 && s.th < (3 * Math.PI) / 2);
+});
+
+test("anéis: avisa quando as palavras não cabem", () => {
+  const { ok, slots } = empacotarAneis(40, 8, larguras(200));
   assert.equal(ok, false);
   assert.ok(slots.filter(Boolean).length < 200);
 });
@@ -87,10 +109,10 @@ test("plano: poucas palavras cabem todas num disco menor que o teto", () => {
   assert.ok(geo.Rd < 700 * 0.38);
 });
 
-test("plano: a ordem das linhas da forma é mantida no disco (cada palavra viaja pouco)", () => {
+test("plano: as palavras do disco seguem a ordem das linhas da forma, anel a anel, de fora para dentro", () => {
   const { geo } = plano(1280, 700, 12, 300);
   const idx = geo.membros.map((m, i) => (m ? i : -1)).filter((i) => i >= 0);
-  for (let k = 1; k < idx.length; k++) assert.ok(geo.membros[idx[k]].v >= geo.membros[idx[k - 1]].v - 1e-9);
+  for (let k = 1; k < idx.length; k++) assert.ok(geo.membros[idx[k]].r <= geo.membros[idx[k - 1]].r + 1e-9);
 });
 
 test("fase do disco: o miolo sai primeiro, a borda por último; tudo pronto em s = 1", () => {
@@ -101,12 +123,39 @@ test("fase do disco: o miolo sai primeiro, a borda por último; tudo pronto em s
   for (let s = 0; s < 1; s += 0.05) assert.ok(faseDisco(s + 0.05, 50, 100) >= faseDisco(s, 50, 100));
 });
 
-test("posição: sem giro está no lugar; meia volta espelha em torno do centro; o ângulo fica em (-π, π]", () => {
+test("posição: sem giro está no anel; todos giram juntos (a distância ao centro não muda); o ângulo fica em (-π, π]", () => {
   const { geo } = plano();
   const m = geo.membros.find(Boolean);
-  const a = posicaoDisco(m, geo, 0), b = posicaoDisco(m, geo, Math.PI);
-  assert.ok(Math.abs(a.x - (geo.cx + m.u)) < 1e-9 && Math.abs(a.y - (geo.cy + m.v)) < 1e-9);
-  assert.ok(Math.abs(a.x + b.x - 2 * geo.cx) < 1e-9 && Math.abs(a.y + b.y - 2 * geo.cy) < 1e-9);
-  assert.ok(Math.abs(Math.hypot(a.x - geo.cx, a.y - geo.cy) - Math.hypot(b.x - geo.cx, b.y - geo.cy)) < 1e-9);
+  const a = posicaoDisco(m, geo, 0), b = posicaoDisco(m, geo, 2.1);
+  assert.ok(Math.abs(Math.hypot(a.x - geo.cx, a.y - geo.cy) - m.r) < 1e-9);
+  assert.ok(Math.abs(Math.hypot(b.x - geo.cx, b.y - geo.cy) - m.r) < 1e-9);
+  const c = posicaoDisco(m, geo, Math.PI);
+  assert.ok(Math.abs(a.x + c.x - 2 * geo.cx) < 1e-9 && Math.abs(a.y + c.y - 2 * geo.cy) < 1e-9);
   for (let x = -20; x < 20; x += 0.37) { const t = angulo(x); assert.ok(t > -Math.PI && t <= Math.PI); assert.ok(Math.abs(Math.cos(t) - Math.cos(x)) < 1e-9); }
+});
+
+test("texto: tangente ao anel (topo das letras para fora)", () => {
+  const geo = { cx: 0, cy: 0 };
+  const topo = { r: 100, th: -Math.PI / 2 }; // topo do disco: texto em pé
+  assert.ok(Math.abs(anguloDaPalavra(topo, 0)) < 1e-9);
+  const direita = { r: 100, th: 0 }; // lado direito: texto na vertical, lido de cima para baixo
+  assert.ok(Math.abs(Math.cos(anguloDaPalavra(direita, 0))) < 1e-9);
+  const baixo = { r: 100, th: Math.PI / 2 };
+  assert.ok(Math.abs(Math.abs(angulo(anguloDaPalavra(baixo, 0))) - Math.PI) < 1e-9, "embaixo, de cabeça para baixo");
+  const p = posicaoDisco(direita, geo, 0);
+  assert.ok(Math.abs(p.x - 100) < 1e-9 && Math.abs(p.y) < 1e-9);
+});
+
+test("letras no arco: reta sem curvatura; com curvatura ficam sobre o círculo e a palavra se dobra para o centro", () => {
+  const av = [5, 6, 5, 7, 6];
+  const reta = letrasNoArco(av, 0);
+  assert.ok(reta.every((l) => l.ly === 0 && l.a === 0));
+  assert.ok(Math.abs((reta[0].lx - av[0] / 2) + (reta[4].lx + av[4] / 2)) < 1e-9, "centrada");
+  const r = 40, arco = letrasNoArco(av, 1 / r);
+  for (const l of arco) assert.ok(Math.abs(Math.hypot(l.lx, l.ly - r) - r) < 1e-9, "fora do círculo");
+  assert.ok(arco[0].ly > 0 && arco[4].ly > 0 && arco[2].ly < arco[0].ly, "as pontas descem em direção ao centro");
+  assert.ok(arco[0].a < 0 && arco[4].a > 0);
+  // curvaturas pequenas se aproximam da reta
+  const quase = letrasNoArco(av, 1e-4);
+  quase.forEach((l, i) => assert.ok(Math.abs(l.lx - reta[i].lx) < 1e-3 && Math.abs(l.ly) < 1e-2));
 });
