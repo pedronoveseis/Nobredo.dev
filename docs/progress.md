@@ -1,6 +1,6 @@
 # Progresso e checkpoint
 
-> Checkpoint de **01/11/2026**. O site está no ar no GitHub Pages, publicado a partir da `main`: `https://pedronoveseis.github.io/Nobredo.dev/`.
+> Checkpoint de **01/11/2026** (atualizado em 11/11/2026). O site está no ar no GitHub Pages, publicado a partir da `main`: `https://pedronoveseis.github.io/Nobredo.dev/`.
 > Arquivo público (repositório público). A arquitetura atual está em `docs/arquitetura.md`.
 
 ## 1. Onde estamos
@@ -8,13 +8,13 @@
 | Item | Estado |
 |---|---|
 | Site estático em `site/` (HTML + CSS + JS puro, sem build) | No ar |
-| Bloco de palavras que vira VOCE em 21/11 00h (onda, estilo lego); bordas retas (`empacotar`), curva `f^1,2`, fonte 70% | Implementado; a transformação toca na primeira visita depois de 21/11 00h (marca no `localStorage`). Aguarda commit (01/11) |
+| Bloco de palavras que vira VOCE em 21/11 00h (onda, estilo lego); bordas retas (`empacotar`), curva `f^1,2`, fonte 70% | Implementado; a transformação toca na primeira visita depois de 21/11 00h (marca no `localStorage`). No ar desde 01/11 (`0ea4a8f`), conferido no celular |
 | Janela da animação | 01/11/2026 00h até 21/11/2026 00h (-03:00) |
 | Relógio | "Falta(m)" até 21/11 00h; depois "Juntos há", 30 dias em 21/11 |
 | Ruído (palavras de 4 letras) | ~940 palavras importadas e filtradas; some em 21/11 00h |
 | Brand book | Cores e fonte aplicadas (fundo `#5D5048`, texto `#EFDEB3`, timer e forma `#E8B83F`, Agilera) |
 | Conteúdo pessoal | Texto simples em `site/assets/pessoais.txt` e `palavra-final.txt` |
-| Testes | 15, rodam no deploy (`node --test tools/*.test.mjs`) |
+| Testes | 58, rodam no deploy (`node --test tools/*.test.mjs`) |
 
 ## 2. Linha do tempo das decisões
 1. **Rodadas 1 a 5:** backend Ktor + SQLite + admin. Descartado.
@@ -35,17 +35,10 @@
 - No zsh interativo `#` não é comentário: não colar comandos com `# ...`.
 
 ## 4. Pendências
-**Do autor**
-- Conferir os arquivos soltos no Mac (`find . -name "pessoais.txt"`): só vale o de `site/assets/`.
-- Enviar o logotipo "nobredo" (SVG ou PNG), se quiser na página.
-- Revisar `tools/bloqueadas.txt` e `site/assets/ruido.js`.
-- Mandar o link `https://pedronoveseis.github.io/Nobredo.dev/` (com `https`, sem `?data=`).
-
-**Técnicas**
-1. Forma pequena no celular em retrato: aumentar a área (`ESCALA_FORMA`) e dar um piso de fonte.
-2. Painel de debug (`?debug`) com data fixa e slider (adiado).
-3. Decidir se `?data=` sai depois de 21/11.
-4. Afinar densidade e movimento do ruído.
+- Logotipo "nobredo" e revisão de `tools/bloqueadas.txt` e `site/assets/ruido.js`: descartados pelo autor.
+- Link já enviado: `https://pedronoveseis.github.io/Nobredo.dev/`. Site conferido no ar em 01/11 (iPhone 12 simulado).
+- Decidir se `?data=` e `?reset=1` saem depois de 21/11.
+- Opcional: aumentar `ESCALA_FORMA` no celular em retrato (o autor achou bom como está).
 
 ## 5. Como operar
 ```sh
@@ -62,3 +55,8 @@ Para mudar o conteúdo: edite `site/assets/pessoais.txt` e `palavra-final.txt`, 
 | Até 20/11 | Ajustes finais (celular, logotipo) |
 | 21/11 00h | Forma completa, ruído some, relógio vira "Juntos há 30 dias" |
 | Depois | Decidir o destino do site e retomar o app KMP |
+
+## Nuvens, tempo e sol (todos na `main`, 11/11/2026)
+- **Nuvens:** o ruído (4 letras) voa e forma nuvens de círculos (referência CodePen "Rainy cloud"), com uma palavra de ruído no centro, por cima das palavras pessoais e do relógio (segundo canvas `#ceu`). Intro só na primeira visita (`nobredo-viu-nuvens`; `?reset=1` apaga). As nuvens saem antes de 21/11 (gancho `FIM_NUVENS`, ainda a definir).
+- **Tempo no Rio:** Open-Meteo, sem chave; cobertura, vento, dia/noite e chuva mexem nas nuvens. Detalhes em `docs/arquitetura.md` (5a).
+- **Sol:** de 11/11 08h a 15/11 00h o bloco vira um disco de anéis concêntricos de palavras douradas que gira, com raios de luz (sem palavras); depois gira até a onda de 21/11 00h levar tudo ao VOCE. Detalhes em `docs/arquitetura.md` (4a). Parâmetros de teste: `?sol=0`, `?data=`, `?acelerar=`, `?giro=`.
