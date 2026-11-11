@@ -2,7 +2,7 @@ import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, proximaPalavra, semAnagramas,
 import { RUIDO as TODO_RUIDO } from "./ruido.js";
 const RUIDO = semAnagramas(TODO_RUIDO); // sem anagramas: nada repete nem colide ao embaralhar
 import { PALETAS, ESCALA_NUVEM, misturar, planejarNuvens, atribuir, posicao, desenharNuvem, desenharSombra, desenharChuva } from "./nuvens.js";
-import { fracaoSol, giro, geometriaSol, preencherSol, ordemEntrada, posicaoSol } from "./sol.js";
+import { fracaoSol, velocidadeGiro, planejarSol, faseDisco, posicaoDisco, angulo } from "./sol.js";
 import { ATUALIZAR_MS, neutro, nuvensParaCobertura, nuvensComChuva, fatorVento, lerSimulado, carregarTempo, buscarTempo, lerBruto, normalizarTempo, URL_TEMPO } from "./tempo.js";
 
 const SEED_PALAVRAS = 4;   // ordem das palavras ao longo da forma
@@ -15,8 +15,7 @@ const ONDA_MS = 6000;     // a transformação em VOCE varre a tela da esquerda 
 const ESPERA_MS = 1500;   // numa primeira visita depois de ALVO, o bloco aparece e só então começa a onda
 const CHAVE = "nobredo-viu-transformacao";
 const VOO_MS = 2500;      // duração do deslocamento de cada palavra, do bloco ao lugar na forma
-const SEED_SOL = 31;      // quais palavras vão para o sol e a ordem em que entram
-const ALFA_ESTRELA = 0.22; // palavras que não cabem no sol ficam vagando fracas ao redor
+const ALFA_ESTRELA = 0.22; // palavras que não cabem no disco do sol ficam vagando fracas ao redor
 const CHAVE_NUVENS = "nobredo-viu-nuvens";
 // Intro das nuvens (primeira visita), em ms: o ruído voa até as nuvens, elas estufam, a deriva começa.
 const VOO_RUIDO_MS = 1800, INTRO_PUFF_MS = 2500, INTRO_PUFF_DUR = 1500, INTRO_PALAVRA_MS = 3600, INTRO_DERIVA_MS = 5000, INTRO_MS = 6500;
@@ -26,7 +25,11 @@ const LENTO = 1.5; // o intro das nuvens dura 50% mais: o relógio do intro corr
 // ?data=2026-11-10T12:00:00-03:00 simula outra data (o tempo segue correndo a partir dela).
 const simulada = Date.parse(new URLSearchParams(location.search).get("data") ?? "");
 const deslocamento = Number.isNaN(simulada) ? 0 : simulada - Date.now();
-const agora = () => Date.now() + deslocamento;
+// ?acelerar=N faz o relógio do site correr N vezes mais rápido (só para gravar a evolução dos dias); ?giro=K multiplica a
+// velocidade de giro do sol (só para vídeo).
+const _q = new URLSearchParams(location.search);
+const ACELERAR = Number(_q.get("acelerar")) || 1, GIRO = Number(_q.get("giro")) || 1, T00 = Date.now();
+const agora = () => (Date.now() - T00) * ACELERAR + T00 + deslocamento;
 
 // Quando a transformação em VOCE começa. Antes de ALVO: em ALVO. Depois de ALVO: na primeira visita (logo
 // depois de abrir); nas seguintes (marca no localStorage), ou se ele estiver bloqueado, já está pronto.
@@ -66,8 +69,8 @@ let ruido = [];       // { texto, base, fase, periodo }
 let forma = [];       // { texto, slot, base, fase, periodo, rank, p }
 let rank = [];
 let bloco = [];       // [{ x, y }]: posição de cada palavra no bloco, antes da transformação
-let geoSol = null;    // geometria do sol (sol.js); nSol palavras nele, as outras são estrelas
-let nSol = 0;
+let geoSol = null;    // o sol (sol.js): disco de palavras + raios de luz; as palavras que não cabem no disco são estrelas
+let rotSol = 0;       // quanto o disco já girou (rad), acumulado: a velocidade cresce enquanto o bloco vira círculo
 let nuvens = [];      // layout das nuvens (nuvens.js), com a palavra do centro em .palavra
 let t0 = null;        // instante do primeiro quadro (para o intro das nuvens)
 
@@ -259,16 +262,13 @@ function montar() {
     periodo: 1800 + rnd(i + 9) * 2200,
     p: antigos[i]?.p ?? null,
   }));
-  // Sol: as palavras (em ordem sorteada) preenchem o disco e os raios; as que sobram viram estrelas.
+  // Sol: o bloco vira um círculo. O disco leva as palavras que surgem primeiro (todas, se couberem); as outras são estrelas.
   ctx.font = `${fonteForma}px ${cor("--font-body")}`;
-  forma.forEach((it) => { it.w = ctx.measureText(it.texto).width; it.sol = null; it.rankSol = -1; });
-  geoSol = null; nSol = 0;
+  forma.forEach((it) => { it.w = ctx.measureText(it.texto).width; it.disco = null; });
+  geoSol = null;
   if (comSol && forma.length) {
-    geoSol = geometriaSol(W, H - RODAPE, fonteForma);
-    const sol = preencherSol(geoSol, forma.map((it) => it.w), ordem(forma.length, SEED_SOL), fonteForma);
-    const rk = ordemEntrada(sol, geoSol, SEED_SOL);
-    sol.forEach((s, j) => { forma[s.i].sol = s; forma[s.i].rankSol = rk[j]; });
-    nSol = sol.length;
+    geoSol = planejarSol(W, H - RODAPE, fonteForma, forma.map((it) => it.w), rank);
+    forma.forEach((it, i) => { it.disco = geoSol.membros[i]; });
   }
   // Ruído em grade com jitter: cobre a tela toda sem empilhar palavras.
   let cw = fonteRuido * 3, ch = fonteRuido * 2;
@@ -349,33 +349,35 @@ function quadro(t) {
 
   // Palavras da forma.
   ctx.font = `${fonteForma}px ${cor("--font-body")}`;
-  const feitasSol = encaixadas(nSol, fracaoSol(n));
-  const rot = reduzido ? 0 : giro(t);
-  const fimOnda = FIM_TRANSF;
-  const saiDoSol = inicioTransf === PRONTA ? 1 : Math.min(1, Math.max(0, (n - inicioTransf) / fimOnda));
-  if (geoSol) desenharBrilho(geoSol, rot, suave(fracaoSol(n)) * (1 - saiDoSol));
+  // Sol: s = quanto o bloco já virou círculo (0 antes de 11/11 08h, 1 em 15/11 00h); o disco gira cada vez mais rápido.
+  const sol = fracaoSol(n);
+  if (!reduzido) rotSol += dt * velocidadeGiro(sol) * GIRO;
+  const saiDoSol = inicioTransf === PRONTA ? 1 : Math.min(1, Math.max(0, (n - inicioTransf) / FIM_TRANSF));
+  if (geoSol) desenharBrilho(geoSol, rotSol, sol, 1 - saiDoSol);
   ctx.textAlign = "center";
   forma.forEach((it, i) => {
-    const alvo = (it.sol ? it.rankSol < feitasSol : rank[i] < feitas) ? 1 : 0;
+    const alvo = rank[i] < feitas ? 1 : 0;
     if (it.p === null) it.p = alvo; // primeira vez: não anima o que já estava encaixado
     else it.p += Math.sign(alvo - it.p) * Math.min(Math.abs(alvo - it.p), dt / 1.8);
 
     if (it.p <= 0 && alvo === 0) return; // ainda não é a vez dela: só surge ao encaixar
     const e = it.p * it.p * (3 - 2 * it.p);
-    // transformação em VOCE: cada palavra sai do bloco para o slot, em onda, a partir de ALVO
+    // transformação em VOCE: cada palavra sai do bloco (ou do disco) para o slot, em onda, a partir de ALVO
     const mm = reduzido ? (n >= inicioTransf ? 1 : 0) : Math.min(1, Math.max(0, (n - inicioTransf - it.atraso) / VOO_MS));
     const ms = mm * mm * (3 - 2 * mm);
-    // soltas: vagam pela tela toda; ao entrar, vão para o lugar no sol (ou no bloco, com ?sol=0)
+    // soltas: vagam pela tela toda; ao entrar, vão para o lugar no bloco
     const fx = it.base.x + Math.sin(k * 0.22 + it.fase) * W * 0.28 + Math.sin(k * 0.61 + it.fase * 2) * 30;
     const fy = it.base.y + Math.cos(k * 0.19 + it.fase * 1.3) * (H - RODAPE) * 0.28 + Math.cos(k * 0.53 + it.fase) * 24;
     const vx = Math.min(W - 10, Math.max(10, fx)), vy = Math.min(H - RODAPE, Math.max(10, fy));
-    // origem da transformação: a posição atual no sol; estrelas e ?sol=0 partem de onde vagam / do bloco
-    let ox = it.bloco.x, oy = it.bloco.y, ang = 0, a = e, cheio = 1;
+    // origem da transformação: no bloco; no disco do sol, o bloco já virou círculo (m = quanto); as estrelas ficam onde vagam
+    let ox = it.bloco.x, oy = it.bloco.y, ang = 0, a = e;
     if (geoSol) {
-      if (it.sol) {
-        const ps = posicaoSol(it.sol, geoSol, rot);
-        ox = ps.x - it.w / 2; oy = ps.y; ang = ps.ang * (1 - ms);
-        if (it.sol.tipo === "raio") cheio = 1 - 0.4 * Math.min(1, (it.sol.r - geoSol.r0) / (geoSol.Rd * 2.4)); // esmaece nas pontas
+      if (it.disco) {
+        const m = faseDisco(sol, it.disco.r, geoSol.Rd);
+        const pd = posicaoDisco(it.disco, geoSol, rotSol);
+        ox = (it.bloco.x + it.w / 2) * (1 - m) + pd.x * m - it.w / 2;
+        oy = it.bloco.y * (1 - m) + pd.y * m;
+        ang = angulo(rotSol) * m * (1 - ms); // o texto gira junto com o disco
       } else { ox = vx; oy = vy; a = e * (ALFA_ESTRELA + (1 - ALFA_ESTRELA) * ms); } // estrela: fraca até a onda de 21/11
     }
     const dx = ox * (1 - ms) + it.slot.x * ms, dy = oy * (1 - ms) + it.slot.y * ms;
@@ -388,9 +390,8 @@ function quadro(t) {
       const ciclo = ((t + it.fase * 900) % it.periodo) / it.periodo;
       if (emTransito || ciclo < 0.7) texto = embaralhar(it.texto, Math.floor(t / (emTransito ? 90 : 160)) * 977 + ((it.fase * 1000) | 0));
     }
-    // disco em creme, raios e estrelas em dourado; tudo vira dourado na transformação
-    ctx.fillStyle = it.sol?.tipo === "disco" ? misturarHex(cor("--color-text"), cor("--color-accent"), ms) : cor("--color-accent");
-    ctx.globalAlpha = a * (cheio * (1 - ms) + ms); // surge em fade enquanto vai para o lugar
+    ctx.fillStyle = cor("--color-accent"); // dourado, como sempre
+    ctx.globalAlpha = a; // surge em fade enquanto vai para o lugar
     if (ang) { ctx.save(); ctx.translate(x + it.w / 2, y); ctx.rotate(ang); ctx.fillText(texto, 0, 0); ctx.restore(); }
     else ctx.fillText(texto, x + it.w / 2, y);
   });
@@ -406,32 +407,25 @@ function quadro(t) {
 
 const suave = (v) => { const p = Math.min(1, Math.max(0, v)); return p * p * (3 - 2 * p); };
 
-// Mistura duas cores "#rrggbb" (t = 0 dá `a`, t = 1 dá `b`).
-function misturarHex(a, b, t) {
-  const c = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
-  const [p, q] = [c(a), c(b)];
-  return `rgb(${p.map((v, i) => Math.round(v + (q[i] - v) * t)).join(",")})`;
-}
-
-// Brilho do sol, por baixo das palavras: o halo do disco (o box-shadow do pen) e uma faixa de luz em cada raio
-// (gradiente transparente → dourado → transparente, como no pen). `a` = 0..1.
-function desenharBrilho(g, rot, a) {
-  if (a <= 0.004) return;
-  const ouro = [232, 184, 63];
-  const rgba = (al) => `rgba(${ouro.join(",")},${al})`;
-  const halo = ctx.createRadialGradient(g.cx, g.cy, g.Rd * 0.2, g.cx, g.cy, g.Rd * 1.9);
-  halo.addColorStop(0, rgba(0.3 * a)); halo.addColorStop(0.55, rgba(0.14 * a)); halo.addColorStop(1, rgba(0));
+// Luz do sol, por baixo das palavras (como no CodePen: disco com brilho e raios em gradiente, aqui dourados).
+// `sol` = progresso 0..1 (o halo cresce com o disco; os raios surgem na segunda metade); `vivo` = 1 → 0 na onda de 21/11.
+function desenharBrilho(g, rot, sol, vivo) {
+  const ha = suave(sol) * vivo, ra = suave((sol - 0.5) / 0.5) * vivo;
+  if (ha <= 0.004) return;
+  const rgba = (al) => `rgba(232,184,63,${al})`;
+  const halo = ctx.createRadialGradient(g.cx, g.cy, g.Rd * 0.3, g.cx, g.cy, g.Rd * 1.7);
+  halo.addColorStop(0, rgba(0.26 * ha)); halo.addColorStop(0.6, rgba(0.12 * ha)); halo.addColorStop(1, rgba(0));
   ctx.fillStyle = halo;
-  ctx.beginPath(); ctx.arc(g.cx, g.cy, g.Rd * 1.9, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(g.cx, g.cy, g.Rd * 1.7, 0, Math.PI * 2); ctx.fill();
+  if (ra <= 0.004) return;
   for (const rg of g.raios) {
-    const larg = rg.faixas * g.passo + g.passo * 0.4;
     ctx.save();
     ctx.translate(g.cx, g.cy);
     ctx.rotate(rg.ang + rot);
-    const gr = ctx.createLinearGradient(rg.r0, 0, rg.rFim, 0);
-    gr.addColorStop(0, rgba(0)); gr.addColorStop(0.5, rgba(0.16 * a)); gr.addColorStop(1, rgba(0));
+    const gr = ctx.createLinearGradient(rg.r0, 0, rg.rFim, 0); // transparente → dourado → transparente, como no pen
+    gr.addColorStop(0, rgba(0)); gr.addColorStop(0.5, rgba(0.2 * ra)); gr.addColorStop(1, rgba(0));
     ctx.fillStyle = gr;
-    ctx.fillRect(rg.r0, -larg / 2, rg.rFim - rg.r0, larg);
+    ctx.fillRect(rg.r0, -rg.larg / 2, rg.rFim - rg.r0, rg.larg);
     ctx.restore();
   }
 }

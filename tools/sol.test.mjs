@@ -1,13 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SOL_INICIO, SOL_FIM, VOLTA_MS, RAIOS, fracaoSol, giro, geometriaSol, preencherSol, ordemEntrada, posicaoSol } from "../site/assets/sol.js";
+import { SOL_INICIO, SOL_FIM, VOLTA_S, RAIOS, fracaoSol, velocidadeGiro, raiosDe, empacotarDisco, planejarSol, faseDisco, posicaoDisco, angulo } from "../site/assets/sol.js";
 import { ALVO, ordem, encaixadas } from "../site/assets/core.js";
 
 const larguras = (n) => Array.from({ length: n }, (_, i) => 22 + ((i * 7) % 5) * 6);
-const monta = (W = 390, util = 700, f = 8, n = 600) => {
-  const geo = geometriaSol(W, util, f);
+const plano = (W = 390, util = 700, f = 8, n = 600, seed = 22) => {
   const w = larguras(n);
-  return { geo, w, slots: preencherSol(geo, w, ordem(n, 4), f), f };
+  const rank = new Array(n);
+  ordem(n, seed).forEach((idx, r) => (rank[idx] = r));
+  return { geo: planejarSol(W, util, f, w, rank), w, rank, f, W, util };
 };
 
 test("datas: começa em 11/11 às 08h e fecha em 15/11 00h (-03:00), antes de 21/11", () => {
@@ -27,96 +28,85 @@ test("progresso: 0 antes das 08h, cresce todo dia, 1 em 15/11", () => {
   }
 });
 
-test("giro: uma volta em 120 s, sempre entre 0 e 2π", () => {
-  assert.equal(giro(0), 0);
-  assert.ok(Math.abs(giro(VOLTA_MS / 4) - Math.PI / 2) < 1e-9);
-  assert.ok(giro(VOLTA_MS - 1) < 2 * Math.PI);
-  assert.equal(giro(VOLTA_MS), 0);
+test("giro: parado no bloco, acelera, e termina em 1 volta a cada 120 s", () => {
+  assert.equal(velocidadeGiro(0), 0);
+  assert.ok(velocidadeGiro(0.3) > 0 && velocidadeGiro(0.3) < velocidadeGiro(0.7));
+  assert.ok(Math.abs(velocidadeGiro(1) - (2 * Math.PI) / VOLTA_S) < 1e-12);
+  assert.equal(velocidadeGiro(2), velocidadeGiro(1));
 });
 
-test("geometria: 10 raios do pen, cabem na área, nascem fora do disco", () => {
+test("raios: 10, de luz (sem palavras), nascem sob a borda do disco e saem dele, de comprimentos diferentes", () => {
   assert.equal(RAIOS.length, 10);
-  const { geo } = monta();
+  const r = raiosDe(100);
+  assert.equal(r.length, 10);
+  for (const x of r) assert.ok(x.r0 < 100 && x.rFim > 100 && x.larg > 0);
+  const comps = r.map((x) => x.rFim - x.r0);
+  assert.ok(Math.max(...comps) > Math.min(...comps) * 1.4);
+  const { geo } = plano();
   assert.equal(geo.raios.length, 10);
-  for (const r of geo.raios) {
-    assert.ok(r.r0 > geo.Rd && r.rFim > r.r0 && r.rFim <= 390 * 0.5 + 1e-6);
-    assert.ok(r.faixas >= 1 && r.faixas <= 3);
-  }
-  const comps = geo.raios.map((r) => r.rFim - r.r0);
-  assert.ok(Math.max(...comps) > Math.min(...comps) * 1.5, "raios de comprimentos bem diferentes");
 });
 
-test("preenchimento: cada palavra no máximo uma vez, disco e raios usados, tudo dentro do alcance", () => {
-  const { geo, slots, w } = monta();
-  assert.ok(slots.length > 40);
-  assert.equal(new Set(slots.map((s) => s.i)).size, slots.length);
-  assert.ok(slots.some((s) => s.tipo === "disco") && slots.some((s) => s.tipo === "raio"));
-  for (const s of slots) {
-    assert.equal(s.w, w[s.i]);
-    const p = posicaoSol(s, geo, 1.234);
-    const d = Math.hypot(p.x - geo.cx, p.y - geo.cy);
-    assert.ok(d <= Math.min(390, 700) * 0.5 + 1e-6, `fora do alcance: ${d}`);
-  }
-  for (const k of new Set(slots.filter((s) => s.tipo === "raio").map((s) => s.raio))) assert.ok(k >= 0 && k < 10);
-});
-
-test("preenchimento: palavras de uma mesma faixa não se sobrepõem", () => {
-  const { slots } = monta(1280, 700, 14);
-  const faixas = new Map();
-  for (const s of slots) {
-    const chave = s.tipo === "disco" ? `d${s.v.toFixed(3)}` : `r${s.raio}:${s.v.toFixed(3)}`;
-    if (!faixas.has(chave)) faixas.set(chave, []);
-    faixas.get(chave).push(s);
-  }
-  for (const [, lista] of faixas) {
-    lista.sort((a, b) => a.u - b.u);
-    for (let k = 1; k < lista.length; k++) assert.ok(lista[k].u - lista[k].w / 2 >= lista[k - 1].u + lista[k - 1].w / 2 - 1e-6);
+test("disco: palavras em linhas dentro do círculo, sem sobreposição, na ordem dada", () => {
+  const w = larguras(60);
+  const { slots, ok } = empacotarDisco(120, 9, 8, w);
+  assert.ok(ok);
+  const linhas = new Map();
+  slots.forEach((s, i) => {
+    assert.equal(s.w, w[i]);
+    assert.ok(Math.hypot(Math.abs(s.u) + s.w / 2, Math.abs(s.v) + 4) <= 120 + 1, "palavra para fora do disco");
+    if (!linhas.has(s.v)) linhas.set(s.v, []);
+    linhas.get(s.v).push(i);
+  });
+  let ant = -Infinity;
+  for (const [v, idx] of [...linhas].sort((a, b) => a[0] - b[0])) {
+    assert.ok(Math.min(...idx) > ant, "ordem preservada de cima para baixo");
+    ant = Math.max(...idx);
+    for (let k = 1; k < idx.length; k++) assert.ok(slots[idx[k]].u - slots[idx[k]].w / 2 >= slots[idx[k - 1]].u + slots[idx[k - 1]].w / 2 - 1e-6, `linha ${v}`);
   }
 });
 
-test("palavras do disco ficam dentro do círculo", () => {
-  const { geo, slots } = monta(1280, 700, 14);
-  for (const s of slots.filter((x) => x.tipo === "disco")) {
-    assert.ok(Math.abs(s.u) + s.w / 2 <= geo.Rd + 1e-6, "ponta da palavra para fora do disco");
-    assert.ok(Math.hypot(Math.abs(s.u) + s.w / 2, Math.abs(s.v) + 7) <= geo.Rd + 1, "canto para fora do disco");
-  }
+test("disco: avisa quando as palavras não cabem", () => {
+  const { ok, slots } = empacotarDisco(30, 9, 8, larguras(200));
+  assert.equal(ok, false);
+  assert.ok(slots.filter(Boolean).length < 200);
 });
 
-test("poucas palavras: usa só as que existem, sem repetir", () => {
-  const geo = geometriaSol(390, 700, 8);
-  const w = larguras(15);
-  const slots = preencherSol(geo, w, ordem(15, 1), 8);
-  assert.ok(slots.length <= 15 && slots.length > 0);
-  assert.equal(new Set(slots.map((s) => s.i)).size, slots.length);
+test("plano: o disco cabe na tela, leva as palavras que surgem primeiro e o resto vira estrela", () => {
+  const { geo, rank, w, W, util } = plano(390, 700, 8, 600);
+  assert.ok(geo.Rd <= Math.min(W, util) * 0.38 + 1e-6);
+  const dentro = geo.membros.map((m, i) => (m ? i : -1)).filter((i) => i >= 0);
+  assert.ok(dentro.length > 40 && dentro.length < 600, `${dentro.length} no disco`);
+  for (const i of dentro) assert.ok(rank[i] < dentro.length, "só as que surgem primeiro entram no disco");
+  for (const i of dentro) assert.equal(geo.membros[i].w, w[i]);
+  assert.ok(geo.membros.some((m) => m === null), "sobram estrelas");
 });
 
-test("ordem de entrada: do miolo para fora e determinística", () => {
-  const { geo, slots } = monta();
-  const rank = ordemEntrada(slots, geo, 7);
-  assert.deepEqual(rank, ordemEntrada(slots, geo, 7));
-  assert.equal(new Set(rank).size, slots.length);
-  const porRank = [];
-  rank.forEach((r, j) => (porRank[r] = slots[j]));
-  const metade = porRank.slice(0, Math.floor(slots.length / 2)).reduce((a, s) => a + s.r, 0) / Math.floor(slots.length / 2);
-  const resto = porRank.slice(Math.floor(slots.length / 2)).reduce((a, s) => a + s.r, 0) / (slots.length - Math.floor(slots.length / 2));
-  assert.ok(metade < resto);
-  // o disco enche antes dos raios: quase todas as palavras do disco entram antes de quase todas as dos raios
-  const disco = slots.filter((s) => s.tipo === "disco").length;
-  const mediana = (tipo) => { const r = slots.map((s, j) => (s.tipo === tipo ? rank[j] : null)).filter((x) => x !== null).sort((a, b) => a - b); return r[Math.floor(r.length / 2)]; };
-  assert.ok(mediana("disco") < disco && mediana("raio") > disco);
+test("plano: poucas palavras cabem todas num disco menor que o teto", () => {
+  const { geo } = plano(1280, 700, 14, 150);
+  assert.ok(geo.membros.every(Boolean));
+  assert.ok(geo.Rd < 700 * 0.38);
 });
 
-test("posição: o disco não gira; o raio gira e o texto nunca fica de cabeça para baixo", () => {
-  const { geo, slots } = monta();
-  const d = slots.find((s) => s.tipo === "disco");
-  assert.deepEqual(posicaoSol(d, geo, 0), posicaoSol(d, geo, 2));
-  const r = slots.find((s) => s.tipo === "raio");
-  const a = posicaoSol(r, geo, 0), b = posicaoSol(r, geo, Math.PI);
-  assert.ok(Math.abs(a.x + b.x - 2 * geo.cx) < 1e-6 && Math.abs(a.y + b.y - 2 * geo.cy) < 1e-6, "meia volta espelha em torno do centro");
-  for (let rot = 0; rot < 2 * Math.PI; rot += 0.1) {
-    for (const s of slots.filter((x) => x.tipo === "raio")) {
-      const { ang } = posicaoSol(s, geo, rot);
-      assert.ok(Math.abs(ang) <= Math.PI / 2 + 1e-9, `ângulo ${ang}`);
-    }
-  }
+test("plano: a ordem das linhas da forma é mantida no disco (cada palavra viaja pouco)", () => {
+  const { geo } = plano(1280, 700, 12, 300);
+  const idx = geo.membros.map((m, i) => (m ? i : -1)).filter((i) => i >= 0);
+  for (let k = 1; k < idx.length; k++) assert.ok(geo.membros[idx[k]].v >= geo.membros[idx[k - 1]].v - 1e-9);
+});
+
+test("fase do disco: o miolo sai primeiro, a borda por último; tudo pronto em s = 1", () => {
+  assert.equal(faseDisco(0, 0, 100), 0);
+  assert.equal(faseDisco(1, 100, 100), 1);
+  assert.equal(faseDisco(1, 0, 100), 1);
+  assert.ok(faseDisco(0.4, 10, 100) > faseDisco(0.4, 90, 100));
+  for (let s = 0; s < 1; s += 0.05) assert.ok(faseDisco(s + 0.05, 50, 100) >= faseDisco(s, 50, 100));
+});
+
+test("posição: sem giro está no lugar; meia volta espelha em torno do centro; o ângulo fica em (-π, π]", () => {
+  const { geo } = plano();
+  const m = geo.membros.find(Boolean);
+  const a = posicaoDisco(m, geo, 0), b = posicaoDisco(m, geo, Math.PI);
+  assert.ok(Math.abs(a.x - (geo.cx + m.u)) < 1e-9 && Math.abs(a.y - (geo.cy + m.v)) < 1e-9);
+  assert.ok(Math.abs(a.x + b.x - 2 * geo.cx) < 1e-9 && Math.abs(a.y + b.y - 2 * geo.cy) < 1e-9);
+  assert.ok(Math.abs(Math.hypot(a.x - geo.cx, a.y - geo.cy) - Math.hypot(b.x - geo.cx, b.y - geo.cy)) < 1e-9);
+  for (let x = -20; x < 20; x += 0.37) { const t = angulo(x); assert.ok(t > -Math.PI && t <= Math.PI); assert.ok(Math.abs(Math.cos(t) - Math.cos(x)) < 1e-9); }
 });
