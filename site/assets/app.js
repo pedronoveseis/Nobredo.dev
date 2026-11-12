@@ -1,4 +1,4 @@
-import { ALVO, JUNTOS_DESDE, fracao, curva, ordem, proximaPalavra, semAnagramas, embaralhar, encaixadas, partes, empacotar, linhasBloco } from "./core.js";
+import { ALVO, JUNTOS_DESDE, dprEfetivo, fracao, curva, ordem, proximaPalavra, semAnagramas, embaralhar, encaixadas, partes, empacotar, linhasBloco } from "./core.js";
 import { RUIDO as TODO_RUIDO } from "./ruido.js";
 const RUIDO = semAnagramas(TODO_RUIDO); // sem anagramas: nada repete nem colide ao embaralhar
 import { PALETAS, ESCALA_NUVEM, misturar, planejarNuvens, atribuir, posicao, desenharNuvem, desenharSombra, desenharChuva } from "./nuvens.js";
@@ -61,6 +61,7 @@ let ptrFila = 0;
 const novaPalavra = (emUso) => { const [p, q] = proximaPalavra(filaRuido, ptrFila, emUso); ptrFila = q; return p; };
 const css = getComputedStyle(document.documentElement);
 const cor = (n) => css.getPropertyValue(n).trim();
+const OURO = cor("--color-accent"); // dourado das palavras da forma (lido uma vez, não por palavra por quadro)
 
 let DPR = 1;           // devicePixelRatio (as letras do disco são desenhadas com setTransform)
 const largLetra = new Map(); // largura de cada letra na fonte atual da forma (limpo em montar())
@@ -73,8 +74,9 @@ let rank = [];
 let bloco = [];       // [{ x, y }]: posição de cada palavra no bloco, antes da transformação
 let geoSol = null;    // o sol (sol.js): disco de palavras + raios de luz; as palavras que não cabem no disco são estrelas
 let rotSol = 0;
-let camada = null;    // camada do disco: palavras já assentadas, desenhadas uma vez e giradas inteiras a cada quadro
-let camadaT = -1e9;   // quando a camada foi refeita (ms de performance.now())       // quanto o disco já girou (rad), acumulado: a velocidade cresce enquanto o bloco vira círculo
+let camada = null;    // camada do disco (canvas #disco): palavras já assentadas, desenhadas uma vez e giradas por CSS
+const discoEl = document.getElementById("disco");
+// rotSol: quanto o disco já girou (rad), acumulado: a velocidade cresce enquanto o bloco vira círculo
 let nuvens = [];      // layout das nuvens (nuvens.js), com a palavra do centro em .palavra
 let t0 = null;        // instante do primeiro quadro (para o intro das nuvens)
 
@@ -226,9 +228,9 @@ function montarBloco(slots) {
 
 // Maior fonte que ainda usa todas as palavras ao menos uma vez.
 function montar() {
-  const dpr = devicePixelRatio || 1;
-  DPR = dpr; largLetra.clear();
   W = canvas.clientWidth || innerWidth; H = canvas.clientHeight || innerHeight;
+  const dpr = dprEfetivo(devicePixelRatio || 1, W, H); // limite de pixels: telas grandes e Retina pintam menos por quadro
+  DPR = dpr; largLetra.clear();
   RODAPE = (document.getElementById("relogio").offsetHeight || 100) + 16;
   canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
@@ -275,6 +277,7 @@ function montar() {
     geoSol = planejarSol(W, H - RODAPE, fonteForma, forma.map((it) => it.w), rank);
     forma.forEach((it, i) => { it.disco = geoSol.membros[i]; });
   }
+  montarLuz(geoSol); luzAnt = { ha: -1, ra: -1 };
   // Ruído em grade com jitter: cobre a tela toda sem empilhar palavras.
   let cw = fonteRuido * 3, ch = fonteRuido * 2;
   const f = Math.max(1, Math.sqrt((W * H) / (cw * ch * RUIDO.length)));
@@ -363,15 +366,11 @@ function quadro(t) {
   // Palavras do disco já assentadas (no anel, inteiras, sem animação) ficam numa camada que só gira; na onda de 21/11
   // cada palavra sai sozinha, então a camada deixa de ser usada.
   const usaCamada = !!geoSol && !(n >= inicioTransf);
-  const fixas = [];
-  let pendentes = 0;
-  if (usaCamada && camada) {
-    ctx.save();
-    ctx.translate(geoSol.cx, geoSol.cy);
-    ctx.rotate(rotSol);
-    ctx.drawImage(camada.cv, -camada.meia, -camada.meia, 2 * camada.meia, 2 * camada.meia);
-    ctx.restore();
-  }
+  const novas = [];
+  sprNovos = 0;
+  // a camada é um canvas HTML (#disco) que o navegador gira (transform), sem redesenhar nada por quadro
+  discoEl.hidden = !(usaCamada && camada);
+  if (!discoEl.hidden) discoEl.style.transform = `rotate(${rotSol}rad)`;
   forma.forEach((it, i) => {
     const alvo = rank[i] < feitas ? 1 : 0;
     if (it.p === null) it.p = alvo; // primeira vez: não anima o que já estava encaixado
@@ -387,10 +386,10 @@ function quadro(t) {
     const fy = it.base.y + Math.cos(k * 0.19 + it.fase * 1.3) * (H - RODAPE) * 0.28 + Math.cos(k * 0.53 + it.fase) * 24;
     const vx = Math.min(W - 10, Math.max(10, fx)), vy = Math.min(H - RODAPE, Math.max(10, fy));
     // origem da transformação: no bloco; no disco do sol, o bloco já virou círculo (m = quanto); as estrelas ficam onde vagam
-    let ox = it.bloco.x, oy = it.bloco.y, ang = 0, a = e, curva = 0, fija = false;
+    let ox = it.bloco.x, oy = it.bloco.y, ang = 0, a = e, curva = 0, fija = false, m = 0;
     if (geoSol) {
       if (it.disco) {
-        const m = faseDisco(sol, it.disco.r, geoSol.Rd);
+        m = faseDisco(sol, it.disco.r, geoSol.Rd);
         const pd = posicaoDisco(it.disco, geoSol, rotSol);
         ox = (it.bloco.x + it.w / 2) * (1 - m) + pd.x * m - it.w / 2;
         oy = it.bloco.y * (1 - m) + pd.y * m;
@@ -398,7 +397,7 @@ function quadro(t) {
         // Na onda de 21/11 ele endireita enquanto voa ao VOCE.
         ang = (ms > 0 ? angulo(anguloDaPalavra(it.disco, rotSol)) : anguloDaPalavra(it.disco, rotSol)) * m * (1 - ms);
         curva = (m / it.disco.r) * (1 - ms);
-        fija = it.p >= 1 && m >= 1 && ms === 0;
+        fija = it.p >= 1 && m >= 0.9995 && ms === 0; // assentada (a diferença para m = 1 é < 0,3 px)
       } else { ox = vx; oy = vy; a = e * (ALFA_ESTRELA + (1 - ALFA_ESTRELA) * ms); } // estrela: fraca até a onda de 21/11
     }
     const dx = ox * (1 - ms) + it.slot.x * ms, dy = oy * (1 - ms) + it.slot.y * ms;
@@ -411,16 +410,24 @@ function quadro(t) {
       const ciclo = ((t + it.fase * 900) % it.periodo) / it.periodo;
       if (emTransito || ciclo < 0.7) texto = embaralhar(it.texto, Math.floor(t / (emTransito ? 90 : 160)) * 977 + ((it.fase * 1000) | 0));
     }
-    if (fija && usaCamada) { fixas.push(it); if (it.cacheado) return; pendentes++; } // já está na camada
-    ctx.fillStyle = cor("--color-accent"); // dourado, como sempre
+    if (fija && usaCamada) { if (it.cacheado) return; if (novas.length < 30) novas.push(it); } // já está na camada; as novas entram nela depois deste quadro
+    ctx.fillStyle = OURO; // dourado, como sempre
     ctx.globalAlpha = a; // surge em fade enquanto vai para o lugar
-    if (curva > 1e-4) desenharNoArco(ctx, texto, x + it.w / 2, y, ang, curva, 0, 0);
+    if (it.w * it.w * curva > 2.8) { // dobra visível (flecha do arco > 0,35 px)
+      const sp = ms === 0 && texto === it.texto ? spriteDaPalavra(it, m) : null; // palavra pronta: um drawImage em vez de letra a letra
+      if (sp) {
+        const co = Math.cos(ang) * DPR, si = Math.sin(ang) * DPR;
+        ctx.setTransform(co, si, -si, co, (x + it.w / 2) * DPR, y * DPR);
+        ctx.drawImage(sp.cv, -sp.ox, -sp.oy, sp.w, sp.h);
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      } else desenharNoArco(ctx, texto, x + it.w / 2, y, ang, curva, 0, 0);
+    }
     else if (ang) { ctx.save(); ctx.translate(x + it.w / 2, y); ctx.rotate(ang); ctx.fillText(texto, 0, 0); ctx.restore(); }
     else ctx.fillText(texto, x + it.w / 2, y);
   });
   ctx.globalAlpha = 1;
   ctx.textAlign = "left";
-  if (usaCamada && pendentes > 0 && t - camadaT > 250) refazerCamada(fixas, t);
+  if (novas.length) acrescentarNaCamada(novas);
 
   desenharCeu(t, ti, dt);
   if (!marcadoNuvens && ti > INTRO_MS) { gravarMarcaNuvens(); marcadoNuvens = true; }
@@ -433,9 +440,44 @@ const suave = (v) => { const p = Math.min(1, Math.max(0, v)); return p * p * (3 
 
 // Palavra dobrada no arco do anel (curva = 1/r), letra por letra, em `c`: centro (cx, cy), ângulo `ang` da tangente,
 // origem deslocada de (ox, oy) px. Usa setTransform (sem save/restore por letra); cada letra é centralizada.
+const avancoDe = (ch) => { let w = largLetra.get(ch); if (w === undefined) { w = ctx.measureText(ch).width; largLetra.set(ch, w); } return w; };
+
+// Palavra em trânsito (dobrada, mas ainda não assentada): desenhada uma vez num sprite com a curva do momento e só
+// girada/colocada a cada quadro (um drawImage em vez de uma chamada de texto por letra). A curva muda devagar (dias), por
+// isso o sprite só é refeito quando a fase `m` anda STEP_SPRITE; no máximo ORC_SPRITES refeitos por quadro.
+const STEP_SPRITE = 0.04, ORC_SPRITES = 40;
+let sprNovos = 0;
+function spriteDaPalavra(it, m) {
+  const q = Math.round(m / STEP_SPRITE);
+  let sp = it.spr;
+  if (sp && sp.q === q) return sp;
+  if (sprNovos >= ORC_SPRITES) return sp ?? null;
+  sprNovos++;
+  const r = it.disco.r, letras = [...it.texto];
+  const pos = letrasNoArco(letras.map(avancoDe), (q * STEP_SPRITE) / r);
+  if (!sp) {
+    const sagMax = (it.w * it.w) / (8 * r) + 2;
+    const w = Math.ceil(it.w + fonteForma * 0.9), h = Math.ceil(fonteForma * 1.3 + sagMax); // folga mínima: o custo do drawImage cresce com a área
+    const cv = document.createElement("canvas");
+    cv.width = Math.ceil(w * DPR); cv.height = Math.ceil(h * DPR);
+    sp = it.spr = { cv, c: cv.getContext("2d"), w, h, ox: w / 2, oy: fonteForma * 0.65, q: -1 };
+  }
+  const c = sp.c;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, sp.cv.width, sp.cv.height);
+  c.font = ctx.font; c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = OURO;
+  for (let i = 0; i < letras.length; i++) {
+    const { lx, ly, a } = pos[i], ca = Math.cos(a) * DPR, sa = Math.sin(a) * DPR;
+    c.setTransform(ca, sa, -sa, ca, (sp.ox + lx) * DPR, (sp.oy + ly) * DPR);
+    c.fillText(letras[i], 0, 0);
+  }
+  sp.q = q;
+  return sp;
+}
+
 function desenharNoArco(c, texto, cx, cy, ang, curva, ox, oy) {
   const letras = [...texto];
-  const av = letras.map((ch) => { let w = largLetra.get(ch); if (w === undefined) { w = ctx.measureText(ch).width; largLetra.set(ch, w); } return w; });
+  const av = letras.map(avancoDe);
   const pos = letrasNoArco(av, curva);
   const co = Math.cos(ang), si = Math.sin(ang);
   for (let i = 0; i < letras.length; i++) {
@@ -447,53 +489,53 @@ function desenharNoArco(c, texto, cx, cy, ang, curva, ox, oy) {
   c.setTransform(DPR, 0, 0, DPR, ox * DPR, oy * DPR);
 }
 
-// Redesenha a camada do disco com as palavras assentadas (em rotação 0, centro do disco no meio da camada).
-function refazerCamada(fixas, t) {
+// Camada do disco: o canvas #disco guarda as palavras assentadas (em rotação 0, centro do disco no meio) e é girado por CSS.
+// Cada palavra é desenhada nela uma única vez, quando assenta; a camada só é recriada em montar() (redimensionamento).
+function acrescentarNaCamada(novas) {
   const meia = Math.ceil(geoSol.Rd + fonteForma);
   if (!camada || camada.meia !== meia) {
-    const cv = document.createElement("canvas");
-    cv.width = cv.height = Math.ceil(2 * meia * DPR);
-    camada = { cv, c: cv.getContext("2d"), meia };
+    discoEl.width = discoEl.height = Math.ceil(2 * meia * DPR);
+    discoEl.style.cssText = `left:${geoSol.cx - meia}px;top:${geoSol.cy - meia}px;width:${2 * meia}px;height:${2 * meia}px`;
+    camada = { cv: discoEl, c: discoEl.getContext("2d"), meia };
+    forma.forEach((it) => { it.cacheado = false; });
   }
   const c = camada.c;
-  c.setTransform(1, 0, 0, 1, 0, 0);
-  c.clearRect(0, 0, camada.cv.width, camada.cv.height);
   c.setTransform(DPR, 0, 0, DPR, meia * DPR, meia * DPR);
-  c.font = ctx.font; c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = cor("--color-accent");
-  for (const it of fixas) {
+  c.font = ctx.font; c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = OURO;
+  for (const it of novas) {
     const d = it.disco;
     desenharNoArco(c, it.texto, d.r * Math.cos(d.th), d.r * Math.sin(d.th), anguloDaPalavra(d, 0), 1 / d.r, meia, meia);
-    it.cacheado = true;
+    it.cacheado = true; it.spr = null;
   }
-  camadaT = t;
 }
 
-// Luz do sol, por baixo das palavras (como no CodePen: disco com brilho e raios em gradiente, aqui dourados).
+// Luz do sol, por baixo das palavras (como no CodePen: disco com brilho e raios em gradiente, aqui dourados). Fica em
+// elementos HTML (#luz), não no canvas: o halo, o núcleo e os raios são gradientes CSS que o navegador desenha uma vez e a
+// GPU compõe; o giro é só um `transform: rotate` no contêiner dos raios. Antes, esses gradientes grandes eram recriados e
+// preenchidos no canvas a cada quadro, o custo mais pesado em telas grandes.
+const luz = document.getElementById("luz");
+const luzHalo = luz.querySelector(".halo"), luzNucleo = luz.querySelector(".nucleo"), luzRaios = luz.querySelector(".raios");
+const caixa = (el, cx, cy, r) => { el.style.cssText = `left:${cx - r}px;top:${cy - r}px;width:${2 * r}px;height:${2 * r}px`; };
+function montarLuz(g) {
+  luz.hidden = !g;
+  luzRaios.textContent = "";
+  if (!g) return;
+  caixa(luzHalo, g.cx, g.cy, g.Rd * 1.7);
+  caixa(luzNucleo, g.cx, g.cy, g.rMin * 1.2);
+  luzRaios.style.cssText = `left:${g.cx}px;top:${g.cy}px`;
+  for (const rg of g.raios) {
+    const d = document.createElement("i");
+    d.style.cssText = `left:${rg.r0}px;top:${-rg.larg / 2}px;width:${rg.rFim - rg.r0}px;height:${rg.larg}px;transform:rotate(${rg.ang}rad);transform-origin:${-rg.r0}px 50%`;
+    luzRaios.append(d);
+  }
+}
+let luzAnt = { ha: -1, ra: -1 };
 // `sol` = progresso 0..1 (o halo cresce nos primeiros 15%; os raios surgem entre 20% e 80%); `vivo` = 1 → 0 na onda de 21/11.
 function desenharBrilho(g, rot, sol, vivo) {
   const ha = Math.min(1, sol / 0.15) * vivo, ra = suave((sol - 0.2) / 0.6) * vivo; // o halo já aparece nas primeiras horas; os raios, no 1º dia
-  if (ha <= 0.004) return;
-  const rgba = (al) => `rgba(232,184,63,${al})`;
-  const halo = ctx.createRadialGradient(g.cx, g.cy, g.Rd * 0.3, g.cx, g.cy, g.Rd * 1.7);
-  halo.addColorStop(0, rgba(0.26 * ha)); halo.addColorStop(0.6, rgba(0.12 * ha)); halo.addColorStop(1, rgba(0));
-  ctx.fillStyle = halo;
-  ctx.beginPath(); ctx.arc(g.cx, g.cy, g.Rd * 1.7, 0, Math.PI * 2); ctx.fill();
-  // núcleo: o miolo livre dos anéis brilha (o disco branco do pen)
-  const nucleo = ctx.createRadialGradient(g.cx, g.cy, 0, g.cx, g.cy, g.rMin * 1.2);
-  nucleo.addColorStop(0, rgba(0.55 * ha)); nucleo.addColorStop(0.65, rgba(0.28 * ha)); nucleo.addColorStop(1, rgba(0));
-  ctx.fillStyle = nucleo;
-  ctx.beginPath(); ctx.arc(g.cx, g.cy, g.rMin * 1.2, 0, Math.PI * 2); ctx.fill();
-  if (ra <= 0.004) return;
-  for (const rg of g.raios) {
-    ctx.save();
-    ctx.translate(g.cx, g.cy);
-    ctx.rotate(rg.ang + rot);
-    const gr = ctx.createLinearGradient(rg.r0, 0, rg.rFim, 0); // transparente → dourado → transparente, como no pen
-    gr.addColorStop(0, rgba(0)); gr.addColorStop(0.5, rgba(0.2 * ra)); gr.addColorStop(1, rgba(0));
-    ctx.fillStyle = gr;
-    ctx.fillRect(rg.r0, -rg.larg / 2, rg.rFim - rg.r0, rg.larg);
-    ctx.restore();
-  }
+  if (Math.abs(ha - luzAnt.ha) > 0.002) { luzHalo.style.opacity = luzNucleo.style.opacity = ha > 0.004 ? ha : 0; luzAnt.ha = ha; }
+  if (Math.abs(ra - luzAnt.ra) > 0.002) { luzRaios.style.setProperty("--ra", ra > 0.004 ? ra : 0); luzAnt.ra = ra; }
+  luzRaios.style.transform = `rotate(${rot}rad)`;
 }
 
 // ---------- nuvens (camada #ceu, por cima de tudo, inclusive do relógio) ----------

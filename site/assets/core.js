@@ -154,3 +154,7 @@ export function empacotar(larguras, pend, gerar, L, folga, janela, extraMax) {
   }
   return itens;
 }
+
+// Resolução interna dos canvases de tela cheia: a do aparelho (dpr), mas sem passar de `orcamento` pixels por canvas
+// (telas grandes e Retina têm milhões de pixels a mais para pintar a cada quadro) e nunca abaixo de 1.
+export const dprEfetivo = (dpr, W, H, orcamento = 4e6) => Math.max(1, Math.min(dpr, Math.sqrt(orcamento / Math.max(1, W * H))));

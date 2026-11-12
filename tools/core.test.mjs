@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { INICIO, ALVO, JUNTOS_DESDE, fracao, curva, ordem, proximaPalavra, semAnagramas, embaralhar, encaixadas, partes, linhasBloco } from "../site/assets/core.js";
+import { INICIO, ALVO, JUNTOS_DESDE, fracao, curva, ordem, proximaPalavra, semAnagramas, embaralhar, encaixadas, partes, linhasBloco, dprEfetivo } from "../site/assets/core.js";
 import { RUIDO } from "../site/assets/ruido.js";
 import { readFileSync } from "node:fs";
 import { bloqueadasDoArquivo, filtrar, semAcento } from "./importar-ruido.mjs";
@@ -138,4 +138,13 @@ test("proximaPalavra: pula as em uso, dá a volta e é determinística", () => {
   assert.deepEqual(proximaPalavra([], 0, new Set()), [null, 0]);
   const emUso = new Set();
   for (let k = 0; k < 4; k++) { const p = proximaPalavra(fila, 0, emUso)[0]; assert.ok(!emUso.has(p)); emUso.add(p); }
+});
+
+test("dprEfetivo: celular fica como está; tela grande Retina é limitada; nunca abaixo de 1", () => {
+  assert.equal(dprEfetivo(3, 390, 844), 3); // 3 Mpx de canvas: dentro do orçamento
+  assert.equal(dprEfetivo(2, 1440, 900), Math.sqrt(4e6 / (1440 * 900))); // 5,2 Mpx a 2×: cai para ~1,76
+  assert.ok(dprEfetivo(2, 1440, 900) > 1.7 && dprEfetivo(2, 1440, 900) < 1.8);
+  assert.equal(dprEfetivo(2, 5120, 2880), 1); // piso
+  assert.equal(dprEfetivo(1, 800, 600), 1); // nunca sobe acima do dpr do aparelho
+  assert.equal(dprEfetivo(2, 0, 0), 2);
 });
