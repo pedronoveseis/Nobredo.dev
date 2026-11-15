@@ -1,8 +1,8 @@
-import { ALVO, JUNTOS_DESDE, dprEfetivo, fracao, curva, ordem, proximaPalavra, semAnagramas, embaralhar, encaixadas, partes, empacotar, linhasBloco } from "./core.js";
+import { ALVO, JUNTOS_DESDE, dprEfetivo, priorizarUnicas, fracao, curva, ordem, proximaPalavra, semAnagramas, embaralhar, encaixadas, partes, empacotar, linhasBloco } from "./core.js";
 import { RUIDO as TODO_RUIDO } from "./ruido.js";
 const RUIDO = semAnagramas(TODO_RUIDO); // sem anagramas: nada repete nem colide ao embaralhar
 import { PALETAS, ESCALA_NUVEM, misturar, planejarNuvens, atribuir, posicao, desenharNuvem, desenharSombra, desenharChuva } from "./nuvens.js";
-import { fracaoSol, velocidadeGiro, planejarSol, faseDisco, posicaoDisco, anguloDaPalavra, letrasNoArco, angulo } from "./sol.js";
+import { fracaoSol, curvaDoSol, velocidadeGiro, planejarSol, faseDisco, posicaoDisco, anguloDaPalavra, letrasNoArco, angulo } from "./sol.js";
 import { ATUALIZAR_MS, neutro, nuvensParaCobertura, nuvensComChuva, fatorVento, lerSimulado, carregarTempo, buscarTempo, lerBruto, normalizarTempo, URL_TEMPO } from "./tempo.js";
 
 const SEED_PALAVRAS = 4;   // ordem das palavras ao longo da forma
@@ -15,6 +15,7 @@ const ONDA_MS = 6000;     // a transformação em VOCE varre a tela da esquerda 
 const ESPERA_MS = 1500;   // numa primeira visita depois de ALVO, o bloco aparece e só então começa a onda
 const CHAVE = "nobredo-viu-transformacao";
 const VOO_MS = 2500;      // duração do deslocamento de cada palavra, do bloco ao lugar na forma
+const NEGRITO = 0.09;      // espessura (× fonte) do contorno que deixa "em negrito" a palavra única; a largura não muda
 const ALFA_ESTRELA = 0.22; // palavras que não cabem no disco do sol ficam vagando fracas ao redor
 const CHAVE_NUVENS = "nobredo-viu-nuvens";
 // Intro das nuvens (primeira visita), em ms: o ruído voa até as nuvens, elas estufam, a deriva começa.
@@ -259,10 +260,14 @@ function montar() {
   const antigos = forma;
   rank = new Array(slots.length);
   ordem(slots.length, SEED_ENCAIXE).forEach((idx, r) => (rank[idx] = r));
+  // as primeiras a entrar são uma cópia de cada palavra única (todas aparecem cedo); essas cópias ficam em negrito até a onda
+  const prior = priorizarUnicas(slots.map((s) => palavras[s.i]), rank);
+  rank = prior.rank;
   forma = slots.map((s, i) => ({
     texto: palavras[s.i],
     slot: { x: s.x, y: s.y },
     bloco: bloco[i] ?? { x: s.x, y: s.y },
+    unica: prior.unicas[i],
     atraso: (s.x / W) * ONDA_MS + rnd(i + 33) * 700,
     base: { x: rnd(i + 1) * W, y: rnd(i + 77) * (H - RODAPE) },
     fase: rnd(i + 5) * 6.28,
@@ -328,7 +333,7 @@ function quadro(t) {
   const dt = Math.min(0.1, (t - ultimo) / 1000);
   ultimo = t;
   const n = agora();
-  const feitas = encaixadas(forma.length, curva(fracao(n)));
+  const feitas = encaixadas(forma.length, geoSol ? curvaDoSol(n) : curva(fracao(n))); // com o sol, o disco fecha em 18/11 13h
   const k = reduzido ? 0 : t / 1000;
 
   ctx.clearRect(0, 0, W, H);
@@ -411,7 +416,9 @@ function quadro(t) {
       if (emTransito || ciclo < 0.7) texto = embaralhar(it.texto, Math.floor(t / (emTransito ? 90 : 160)) * 977 + ((it.fase * 1000) | 0));
     }
     if (fija && usaCamada) { if (it.cacheado) return; if (novas.length < 30) novas.push(it); } // já está na camada; as novas entram nela depois deste quadro
-    ctx.fillStyle = OURO; // dourado, como sempre
+    const neg = it.unica ? 1 - ms : 0; // negrito (contorno) da palavra única: some na onda de 21/11
+    ctx.fillStyle = ctx.strokeStyle = OURO; // dourado, como sempre
+    ctx.lineJoin = "round";
     ctx.globalAlpha = a; // surge em fade enquanto vai para o lugar
     if (it.w * it.w * curva > 2.8) { // dobra visível (flecha do arco > 0,35 px)
       const sp = ms === 0 && texto === it.texto ? spriteDaPalavra(it, m) : null; // palavra pronta: um drawImage em vez de letra a letra
@@ -420,10 +427,10 @@ function quadro(t) {
         ctx.setTransform(co, si, -si, co, (x + it.w / 2) * DPR, y * DPR);
         ctx.drawImage(sp.cv, -sp.ox, -sp.oy, sp.w, sp.h);
         ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-      } else desenharNoArco(ctx, texto, x + it.w / 2, y, ang, curva, 0, 0);
+      } else desenharNoArco(ctx, texto, x + it.w / 2, y, ang, curva, 0, 0, neg);
     }
-    else if (ang) { ctx.save(); ctx.translate(x + it.w / 2, y); ctx.rotate(ang); ctx.fillText(texto, 0, 0); ctx.restore(); }
-    else ctx.fillText(texto, x + it.w / 2, y);
+    else if (ang) { ctx.save(); ctx.translate(x + it.w / 2, y); ctx.rotate(ang); ctx.fillText(texto, 0, 0); if (neg > 0.02) { ctx.lineWidth = fonteForma * NEGRITO * neg; ctx.strokeText(texto, 0, 0); } ctx.restore(); }
+    else { ctx.fillText(texto, x + it.w / 2, y); if (neg > 0.02) { ctx.lineWidth = fonteForma * NEGRITO * neg; ctx.strokeText(texto, x + it.w / 2, y); } }
   });
   ctx.globalAlpha = 1;
   ctx.textAlign = "left";
@@ -465,26 +472,29 @@ function spriteDaPalavra(it, m) {
   const c = sp.c;
   c.setTransform(1, 0, 0, 1, 0, 0);
   c.clearRect(0, 0, sp.cv.width, sp.cv.height);
-  c.font = ctx.font; c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = OURO;
+  c.font = ctx.font; c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = c.strokeStyle = OURO; c.lineJoin = "round"; c.lineWidth = fonteForma * NEGRITO;
   for (let i = 0; i < letras.length; i++) {
     const { lx, ly, a } = pos[i], ca = Math.cos(a) * DPR, sa = Math.sin(a) * DPR;
     c.setTransform(ca, sa, -sa, ca, (sp.ox + lx) * DPR, (sp.oy + ly) * DPR);
     c.fillText(letras[i], 0, 0);
+    if (it.unica) c.strokeText(letras[i], 0, 0);
   }
   sp.q = q;
   return sp;
 }
 
-function desenharNoArco(c, texto, cx, cy, ang, curva, ox, oy) {
+function desenharNoArco(c, texto, cx, cy, ang, curva, ox, oy, neg = 0) {
   const letras = [...texto];
   const av = letras.map(avancoDe);
   const pos = letrasNoArco(av, curva);
   const co = Math.cos(ang), si = Math.sin(ang);
+  if (neg > 0.02) { c.strokeStyle = OURO; c.lineJoin = "round"; c.lineWidth = fonteForma * NEGRITO * neg; }
   for (let i = 0; i < letras.length; i++) {
     const { lx, ly, a } = pos[i];
     const th = ang + a, ct = Math.cos(th) * DPR, st = Math.sin(th) * DPR;
     c.setTransform(ct, st, -st, ct, (ox + cx + co * lx - si * ly) * DPR, (oy + cy + si * lx + co * ly) * DPR);
     c.fillText(letras[i], 0, 0);
+    if (neg > 0.02) c.strokeText(letras[i], 0, 0);
   }
   c.setTransform(DPR, 0, 0, DPR, ox * DPR, oy * DPR);
 }
@@ -504,7 +514,7 @@ function acrescentarNaCamada(novas) {
   c.font = ctx.font; c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = OURO;
   for (const it of novas) {
     const d = it.disco;
-    desenharNoArco(c, it.texto, d.r * Math.cos(d.th), d.r * Math.sin(d.th), anguloDaPalavra(d, 0), 1 / d.r, meia, meia);
+    desenharNoArco(c, it.texto, d.r * Math.cos(d.th), d.r * Math.sin(d.th), anguloDaPalavra(d, 0), 1 / d.r, meia, meia, it.unica ? 1 : 0);
     it.cacheado = true; it.spr = null;
   }
 }

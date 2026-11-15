@@ -1,14 +1,24 @@
 // O sol: o bloco de palavras vira um círculo que gira (o disco) e ganha raios de luz (sem palavras).
 // Referência: CodePen "Sun Ray Effect CSS", de abuzar. Lógica pura (sem DOM), testada em tools/sol.test.mjs;
 // o desenho fica em app.js.
-import { fracao } from "./core.js";
+import { INICIO, ALVO, curva, fracao } from "./core.js";
 
 export const SOL_INICIO = Date.parse("2026-11-11T08:00:00-03:00"); // o bloco começa a virar círculo
 export const SOL_FIM = Date.parse("2026-11-15T00:00:00-03:00"); // sol completo
+export const SOL_COMPLETO = Date.parse("2026-11-18T13:00:00-03:00"); // o disco tem todas as palavras
 export const VOLTA_S = 120; // o disco e os raios dão uma volta a cada 120 s (velocidade final), como no pen
 
 // 0 antes de SOL_INICIO, 1 em SOL_FIM, linear no meio.
 export const fracaoSol = (agora) => fracao(agora, SOL_INICIO, SOL_FIM);
+
+// Fração das palavras já presentes enquanto o sol existe. Até SOL_FIM é o ritmo de sempre (curva de core.js); daí sobe
+// linearmente até 1 em SOL_COMPLETO (o disco fecha sem buracos) e nunca fica abaixo da curva antiga (sem pulo para trás).
+export function curvaDoSol(agora) {
+  const velha = (t) => curva(fracao(t, INICIO, ALVO));
+  if (agora < SOL_FIM) return velha(agora);
+  const c0 = velha(SOL_FIM);
+  return Math.min(1, Math.max(velha(agora), c0 + (1 - c0) * fracao(agora, SOL_FIM, SOL_COMPLETO)));
+}
 
 const suave = (v) => { const p = Math.min(1, Math.max(0, v)); return p * p * (3 - 2 * p); };
 

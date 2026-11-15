@@ -158,3 +158,17 @@ export function empacotar(larguras, pend, gerar, L, folga, janela, extraMax) {
 // Resolução interna dos canvases de tela cheia: a do aparelho (dpr), mas sem passar de `orcamento` pixels por canvas
 // (telas grandes e Retina têm milhões de pixels a mais para pintar a cada quadro) e nunca abaixo de 1.
 export const dprEfetivo = (dpr, W, H, orcamento = 4e6) => Math.max(1, Math.min(dpr, Math.sqrt(orcamento / Math.max(1, W * H))));
+
+// A ordem em que as palavras surgem (`rank`, aleatória) pode deixar uma palavra única toda escondida por dias. Aqui a
+// primeira cópia de cada texto (a de menor rank) passa para o começo da fila, na mesma ordem relativa; as outras seguem
+// na ordem de antes. Devolve { rank, unicas }: `rank` (permutação) e `unicas[i]` = o slot i é a cópia que representa a
+// sua palavra (as primeiras U entradas são sempre as U palavras únicas: aparecem todas cedo e ficam).
+export function priorizarUnicas(textos, rank) {
+  const porRank = textos.map((_, i) => i).sort((a, b) => rank[a] - rank[b]);
+  const vistos = new Set(), primeiras = [], demais = [];
+  for (const i of porRank) (vistos.has(textos[i]) ? demais : (vistos.add(textos[i]), primeiras)).push(i);
+  const novo = new Array(textos.length), unicas = new Array(textos.length).fill(false);
+  primeiras.concat(demais).forEach((i, r) => (novo[i] = r));
+  primeiras.forEach((i) => (unicas[i] = true));
+  return { rank: novo, unicas };
+}

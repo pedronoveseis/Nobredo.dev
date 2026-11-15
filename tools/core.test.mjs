@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { INICIO, ALVO, JUNTOS_DESDE, fracao, curva, ordem, proximaPalavra, semAnagramas, embaralhar, encaixadas, partes, linhasBloco, dprEfetivo } from "../site/assets/core.js";
+import { INICIO, ALVO, JUNTOS_DESDE, fracao, curva, ordem, proximaPalavra, semAnagramas, embaralhar, encaixadas, partes, linhasBloco, dprEfetivo, priorizarUnicas } from "../site/assets/core.js";
 import { RUIDO } from "../site/assets/ruido.js";
 import { readFileSync } from "node:fs";
 import { bloqueadasDoArquivo, filtrar, semAcento } from "./importar-ruido.mjs";
@@ -147,4 +147,37 @@ test("dprEfetivo: celular fica como está; tela grande Retina é limitada; nunca
   assert.equal(dprEfetivo(2, 5120, 2880), 1); // piso
   assert.equal(dprEfetivo(1, 800, 600), 1); // nunca sobe acima do dpr do aparelho
   assert.equal(dprEfetivo(2, 0, 0), 2);
+});
+
+test("priorizarUnicas: as primeiras entradas são uma de cada palavra única, e nada some", () => {
+  const textos = ["a", "b", "a", "c", "b", "a", "c", "d", "d", "a"];
+  const rank0 = ordem(textos.length, 5).reduce((r, idx, k) => ((r[idx] = k), r), []);
+  const { rank, unicas } = priorizarUnicas(textos, rank0);
+  assert.deepEqual([...rank].sort((x, y) => x - y), textos.map((_, i) => i)); // permutação
+  assert.equal(unicas.filter(Boolean).length, 4);
+  assert.deepEqual(new Set(textos.filter((_, i) => unicas[i])), new Set(["a", "b", "c", "d"]));
+  for (let i = 0; i < textos.length; i++) assert.equal(unicas[i], rank[i] < 4); // as 4 primeiras posições
+  // a cópia escolhida é a de menor rank original de cada texto
+  for (const t of ["a", "b", "c", "d"]) {
+    const idx = textos.map((x, i) => (x === t ? i : -1)).filter((i) => i >= 0);
+    const menor = idx.reduce((m, i) => (rank0[i] < rank0[m] ? i : m));
+    assert.ok(unicas[menor]);
+  }
+  // a ordem relativa das demais não muda
+  const resto = (r) => textos.map((_, i) => i).filter((i) => !unicas[i]).sort((x, y) => r[x] - r[y]);
+  assert.deepEqual(resto(rank), resto(rank0));
+  // com K >= 4 toda palavra única está presente
+  for (let K = 4; K <= textos.length; K++) assert.equal(new Set(textos.filter((_, i) => rank[i] < K)).size, 4);
+});
+
+test("priorizarUnicas: quem já estava visível continua visível (só entram as únicas que estavam escondidas)", () => {
+  const textos = Array.from({ length: 60 }, (_, i) => `p${i % 6}`);
+  const rank0 = ordem(60, 9).reduce((r, idx, k) => ((r[idx] = k), r), []);
+  const { rank } = priorizarUnicas(textos, rank0);
+  const K = 30;
+  const antes = new Set(textos.map((_, i) => i).filter((i) => rank0[i] < K));
+  const depois = new Set(textos.map((_, i) => i).filter((i) => rank[i] < K));
+  const sairam = [...antes].filter((i) => !depois.has(i)).length, entraram = [...depois].filter((i) => !antes.has(i)).length;
+  assert.equal(sairam, entraram);
+  assert.ok(entraram <= 6);
 });

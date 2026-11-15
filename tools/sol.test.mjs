@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SOL_INICIO, SOL_FIM, VOLTA_S, RAIOS, fracaoSol, velocidadeGiro, raiosDe, empacotarAneis, planejarSol, faseDisco, posicaoDisco, anguloDaPalavra, letrasNoArco, angulo } from "../site/assets/sol.js";
-import { ALVO, ordem, encaixadas } from "../site/assets/core.js";
+import { SOL_INICIO, SOL_FIM, SOL_COMPLETO, curvaDoSol, VOLTA_S, RAIOS, fracaoSol, velocidadeGiro, raiosDe, empacotarAneis, planejarSol, faseDisco, posicaoDisco, anguloDaPalavra, letrasNoArco, angulo } from "../site/assets/sol.js";
+import { INICIO, ALVO, curva, fracao, ordem, encaixadas } from "../site/assets/core.js";
 
 const larguras = (n) => Array.from({ length: n }, (_, i) => 22 + ((i * 7) % 5) * 6);
 const plano = (W = 390, util = 700, f = 8, n = 600, seed = 22) => {
@@ -186,4 +186,37 @@ test("giro: linear até a metade do caminho e constante depois", () => {
   assert.ok(Math.abs(velocidadeGiro(0.25) - w / 2) < 1e-12);
   assert.ok(Math.abs(velocidadeGiro(0.5) - w) < 1e-12);
   assert.ok(Math.abs(velocidadeGiro(0.8) - w) < 1e-12);
+});
+
+const HORA = 3600e3;
+test("curvaDoSol: até 15/11 00h é a curva de sempre", () => {
+  for (const d of ["2026-11-01T00:00:00-03:00", "2026-11-05T10:00:00-03:00", "2026-11-11T08:00:00-03:00", "2026-11-14T23:59:00-03:00"]) {
+    const t = Date.parse(d);
+    assert.equal(curvaDoSol(t), curva(fracao(t, INICIO, ALVO)));
+  }
+});
+test("curvaDoSol: contínua em 15/11 00h, sobe até 1 em 18/11 13h e fica em 1", () => {
+  const velha = curva(fracao(SOL_FIM, INICIO, ALVO));
+  assert.ok(Math.abs(curvaDoSol(SOL_FIM) - velha) < 1e-9);
+  assert.ok(Math.abs(curvaDoSol(SOL_FIM - 1) - velha) < 1e-6);
+  assert.equal(curvaDoSol(SOL_COMPLETO), 1);
+  assert.equal(curvaDoSol(SOL_COMPLETO + 5 * HORA), 1);
+  assert.equal(curvaDoSol(ALVO), 1);
+  assert.ok(curvaDoSol(SOL_COMPLETO - HORA) < 1);
+});
+test("curvaDoSol: monótona, nunca abaixo da curva antiga, nunca acima de 1", () => {
+  let ant = 0;
+  for (let t = INICIO; t <= ALVO + 24 * HORA; t += HORA) {
+    const v = curvaDoSol(t);
+    assert.ok(v >= ant - 1e-12, "não decresce");
+    assert.ok(v >= curva(fracao(t, INICIO, ALVO)) - 1e-12, "não fica abaixo da curva antiga");
+    assert.ok(v <= 1 + 1e-12);
+    ant = v;
+  }
+});
+test("curvaDoSol: ritmo esperado (246 palavras): ~70% em 15/11 12h, ~85% em 17/11, 100% em 18/11 13h", () => {
+  const pct = (d) => encaixadas(246, curvaDoSol(Date.parse(d)));
+  assert.ok(pct("2026-11-15T12:00:00-03:00") / 246 > 0.69 && pct("2026-11-15T12:00:00-03:00") / 246 < 0.72);
+  assert.ok(pct("2026-11-17T00:00:00-03:00") / 246 > 0.84 && pct("2026-11-17T00:00:00-03:00") / 246 < 0.87);
+  assert.equal(pct("2026-11-18T13:00:00-03:00"), 246);
 });
